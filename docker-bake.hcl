@@ -44,7 +44,7 @@ target "bootstrap" {
 
 target "default" {
     inherits = [ 
-        "buildkit-nix",
+        "buildkit-nix-bootstrap",
     ]
     platforms = [
         "linux/amd64",
