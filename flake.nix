@@ -11,6 +11,20 @@
       forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
     in
     {
+      legacyPackages = forAllSystems (
+        system:
+        import ./default.nix {
+          pkgs = import nixpkgs { inherit system; };
+        }
+      );
+
+      packages = forAllSystems (
+        system:
+        import ./default.nix {
+          pkgs = import nixpkgs { inherit system; };
+        }
+      );
+
       devShells = forAllSystems (
         system:
         let
@@ -32,5 +46,8 @@
           };
         }
       );
+
+      # nix fmt (experimental)
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };
 }

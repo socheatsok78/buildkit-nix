@@ -6,7 +6,7 @@ An experimental BuildKit frontend for building Nix derivations and flakes as Doc
 In the `flake.nix` add the following snippet to the top of the file:
 
 ```nix
-# syntax=ghcr.io/socheatsok78/buildkit-nix:dev
+# syntax=ghcr.io/socheatsok78/buildkit-nix:experimental
 ```
 
 Then run the following command to build the flake:
