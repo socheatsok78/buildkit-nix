@@ -20,5 +20,14 @@ rec {
     ];
   });
 
+  buildkit-nix-image = pkgs.dockerTools.buildLayeredImage {
+    name = "buildkit-nix";
+    tag = "experimental";
+    contents = [ buildkit-nix ];
+    config = {
+      Cmd = [ "${buildkit-nix}/bin/nix-frontend"];
+    };
+  };
+
   default = buildkit-nix;
 }
