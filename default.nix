@@ -25,7 +25,7 @@ rec {
     tag = "experimental";
     contents = [ buildkit-nix ];
     config = {
-      Cmd = [ "${buildkit-nix}/bin/nix-frontend"];
+      Cmd = [ "${buildkit-nix}/bin/nix-frontend" ];
     };
   };
 
