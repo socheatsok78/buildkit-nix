@@ -12,6 +12,9 @@ In the `flake.nix` add the following snippet to the top of the file:
 Then run the following command to build the flake:
 
 ```bash
-export DOCKER_BUILDKIT=1
-docker build -t nginx-nix -f flake.nix .
+docker buildx build -t flake -f flake.nix .
+
+# or if you want to build a specific `nix build .#<installable>`,
+# you can use the `--target` option:
+docker buildx build -t flake -f flake.nix --target <installable> .
 ```
