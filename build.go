@@ -45,9 +45,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 	// Run the nix build command inside the nix image
 	builderSt := builder.Dir("/workspace").Run(
-		llb.AddMount("/src", src),
+		llb.AddMount("/src", src, llb.Readonly),
+		llb.AddMount("/build", llb.Scratch()),
 		llb.Args([]string{
 			"nix",
+			"--option", "sandbox", "false",
 			"--extra-experimental-features", "nix-command",
 			"--extra-experimental-features", "flakes",
 			"build",
