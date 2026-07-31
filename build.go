@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -13,11 +14,29 @@ import (
 )
 
 const (
-	LocalNameContext = "context"
 	NixImage         = "docker.io/nixos/nix:latest"
+	LocalNameContext = "context"
+
+	buildArgPrefix = "build-arg:"
+	keyTarget      = "target"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
+	opts := c.BuildOpts().Opts
+
+	// also accept build args from Moby
+	for k, v := range opts {
+		if strings.HasPrefix(k, buildArgPrefix) {
+			opts[strings.TrimPrefix(k, buildArgPrefix)] = v
+		}
+	}
+
+	// Check if a target is specified in the build options, Use it for nix build installables
+	target := ""
+	if v, ok := opts[keyTarget]; ok {
+		target = fmt.Sprintf("#%v", v)
+	}
+
 	// Load the source code from the build context
 	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
 
@@ -33,7 +52,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			"--extra-experimental-features", "flakes",
 			"build",
 			"--option", "build-users-group", "",
-			"/src",
+			fmt.Sprintf("/src%s", target),
 		}),
 	)
 
