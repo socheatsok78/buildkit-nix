@@ -1,2 +1,2 @@
-# buildkit-nix
+## About
 An experimental BuildKit frontend for building Nix derivations and flakes as Dockerfile.
