@@ -9,7 +9,7 @@ variable "GITHUB_REPOSITORY_OWNER" {
 target "docker-metadata-action" {}
 target "github-metadata-action" {}
 
-target "buildkit-nix-bootstrap" {
+target "buildkit-nix-dockerfile" {
     inherits = [ 
         "docker-metadata-action",
         "github-metadata-action",
@@ -29,9 +29,9 @@ target "buildkit-nix" {
 }
 
 
-target "bootstrap" {
+target "dockerfile" {
     inherits = [ 
-        "buildkit-nix-bootstrap",
+        "buildkit-nix-dockerfile",
     ]
     platforms = [
         "linux/amd64",
@@ -42,9 +42,9 @@ target "bootstrap" {
     ]
 }
 
-target "default" {
+target "flakes" {
     inherits = [ 
-        "buildkit-nix-bootstrap",
+        "buildkit-nix",
     ]
     platforms = [
         "linux/amd64",
@@ -53,4 +53,9 @@ target "default" {
     tags = [
         "ghcr.io/${GITHUB_REPOSITORY_OWNER}/buildkit-nix:experimental",
     ]
+}
+
+
+target "default" {
+    inherits = [ "dockerfile" ]
 }
