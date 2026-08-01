@@ -93,9 +93,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Run the nix build command inside the nix image
 		builderSt := builder.Run(
-			llb.Shlex("mkdir -p /var/cache/nix"),
-			withInternalName("configure nix store cache"),
-		).Run(
 			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.Shlex("cp -anfT /nix /mnt/nix"),
 			withInternalName("configure nix store cache"),
