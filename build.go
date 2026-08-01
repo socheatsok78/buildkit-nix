@@ -65,8 +65,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	)
 
 	// Extract the result of the nix build to a new scratch state
-	layered := llb.Scratch()
-	layeredSt := layered.File(
+	extract := llb.Scratch()
+	extractSt := extract.File(
 		llb.Copy(builderSt.GetMount("/"), "/workspace/result", "/", &llb.CopyInfo{
 			AttemptUnpack: true,
 		}),
@@ -74,23 +74,23 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	)
 
 	// Prepare the builder state to extract the manifest.json file
-	builderDef, err := layeredSt.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+	extractDef, err := extractSt.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 	if err != nil {
 		return nil, err
 	}
-	builderRes, err := c.Solve(ctx, client.SolveRequest{
-		Definition: builderDef.ToPB(),
+	extractRes, err := c.Solve(ctx, client.SolveRequest{
+		Definition: extractDef.ToPB(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	builderRef, err := builderRes.SingleRef()
+	extractRef, err := extractRes.SingleRef()
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse the manifest.json file to get the list of layers and the config file
-	manifestByte, err := builderRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
+	manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +100,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Create a new scratch state to hold the extracted layers
-	st := llb.Scratch()
+	layered := llb.Scratch()
 
 	// Import each layer from the result of the nix build into the new scratch state
 	for _, layer := range manifest.Layers {
-		st = st.File(
-			llb.Copy(layeredSt, layer, "/", &llb.CopyInfo{
+		layered = layered.File(
+			llb.Copy(extractSt, layer, "/", &llb.CopyInfo{
 				AttemptUnpack: true,
 			}),
 			nixui.WithInternalName(fmt.Sprintf("importing layer: %s", layer)),
@@ -113,23 +113,23 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Prepare the final definition from final state
-	def, err := st.Marshal(ctx)
+	layeredDef, err := layered.Marshal(ctx)
 	if err != nil {
 		return nil, err
 	}
-	res, err := c.Solve(ctx, client.SolveRequest{
-		Definition: def.ToPB(),
+	layeredRes, err := c.Solve(ctx, client.SolveRequest{
+		Definition: layeredDef.ToPB(),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	// Read the config file from the result of the nix build and add it to the result metadata
-	configByte, err := builderRef.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
+	configByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
 	if err != nil {
 		return nil, err
 	}
-	res.AddMeta(exptypes.ExporterImageConfigKey, configByte)
+	layeredRes.AddMeta(exptypes.ExporterImageConfigKey, configByte)
 
-	return res, nil
+	return layeredRes, nil
 }
