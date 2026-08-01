@@ -74,6 +74,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			nixStoreCacheKey = fmt.Sprintf("nix-store-cache-%s-%s", platform.OS, platform.Architecture)
 		}
 
+		// Nix store is used to persist the nix store between builds, so that we don't have to rebuild everything from scratch every time
+		nixStore := llb.Scratch()
+
 		// Load the nix image and set it as the base image for the build
 		builderOpts := []llb.ImageOption{
 			llb.WithMetaResolver(c),
@@ -82,8 +85,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if platform != nil {
 			builderOpts = append(builderOpts, llb.Platform(*platform))
 		}
-
-		nixStore := llb.Scratch()
 
 		// Setup builder state
 		builder := llb.Image(NixImage, builderOpts...)
@@ -101,7 +102,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount(dockerfileDir, *dockerfile.State, llb.Readonly),
 			llb.AddMount(sourceDir, src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
-			llb.AddMount("/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			// llb.AddMount("/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.Args([]string{
 				"nix",
 				"--option", "sandbox", "false",
