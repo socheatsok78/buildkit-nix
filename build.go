@@ -43,7 +43,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	prettyTarget := ""
 	if v, ok := opts[keyTarget]; ok {
 		target = fmt.Sprintf("#%v", v)
-		prettyTarget = fmt.Sprintf(".#%v", target)
+		prettyTarget = fmt.Sprintf(".%v", target)
 	}
 
 	// Load the source code from the build context
