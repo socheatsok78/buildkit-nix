@@ -157,10 +157,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			return nil, err
 		}
 
-		// Create a new scratch state to hold the extracted layers
+		// Create a new scratch state and overlay the layers from the manifest.json file to it
 		layered := llb.Scratch()
-
-		// Import each layer from the result of the nix build into the new scratch state
 		for _, layer := range manifest.Layers {
 			layered = layered.File(
 				llb.Copy(extractSt, layer, "/", &llb.CopyInfo{
