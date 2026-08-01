@@ -24,8 +24,9 @@ const (
 )
 
 const (
-	srcDir       = "/mnt/src"
-	workspaceDir = "/mnt/workspace"
+	sourceDir     = "/mnt/source"
+	dockerfileDir = "/mnt/dockerfile"
+	workspaceDir  = "/mnt/workspace"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
@@ -51,6 +52,13 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		prettyTarget = fmt.Sprintf(".%v", target)
 	}
 
+	// Read the flake.nix as the entrypoint for the build
+	// The build process doesn't technically use this layer as build source but the local://context instead
+	dockerfile, err := bc.ReadEntrypoint(ctx, "nix")
+	if err != nil {
+		return nil, err
+	}
+
 	// Load the source code from the build context
 	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), dockerui.WithInternalName("load source from build context"))
 
@@ -70,16 +78,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if platform != nil {
 			builderOpts = append(builderOpts, llb.Platform(*platform))
 		}
-		builder := llb.Image(NixImage, builderOpts...)
 
-		// Configure builder
+		// Setup builder state
+		builder := llb.Image(NixImage, builderOpts...)
 		builder = builder.With(
 			llb.Dir(workspaceDir),
 		)
 
 		// Run the nix build command inside the nix image
 		builderSt := builder.Run(
-			llb.AddMount(srcDir, src, llb.Readonly),
+			llb.AddMount(dockerfileDir, *dockerfile.State, llb.Readonly),
+			llb.AddMount(sourceDir, src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.Args([]string{
 				"nix",
@@ -90,7 +99,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"--show-trace",
 				"--log-format", "raw",
 				"build",
-				fmt.Sprintf("%s%s", srcDir, target),
+				fmt.Sprintf("%s%s", sourceDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
 		)
@@ -98,9 +107,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
 		extractSt := extract.File(
-			llb.Copy(builderSt.GetMount("/"), fmt.Sprintf("%s/result", workspaceDir), "/", &llb.CopyInfo{
-				AttemptUnpack: true,
-			}),
+			llb.Copy(
+				builderSt.GetMount("/"),
+				fmt.Sprintf("%s/result", workspaceDir), "/", &llb.CopyInfo{
+					AttemptUnpack: true,
+				},
+			),
 			withInternalName("extracting result layers"),
 		)
 
