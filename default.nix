@@ -12,7 +12,7 @@ rec {
       "cmd/nix-frontend"
     ];
 
-    vendorHash = "sha256-M59BZSFKSWrb6iAnXxFr+iktUcVK2AN208AfBO6XsbE=";
+    vendorHash = "sha256-4doFp5UonyTpQlpMewEbaJXy9m94NAlQDVTH7YnBpvA=";
 
     ldflags = [
       "-s"
