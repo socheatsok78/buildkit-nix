@@ -7,7 +7,6 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
-	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
@@ -38,13 +37,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the source code from the build context
-	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
+	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), nixui.WithInternalName("load source from build context"))
 
 	// Load the nix image and set it as the base image for the build
-	builder := llb.Image(NixImage, llb.WithMetaResolver(c), dockerui.WithInternalName(fmt.Sprintf("load builder image from %s", NixImage)))
+	builder := llb.Image(NixImage, llb.WithMetaResolver(c), nixui.WithInternalName(fmt.Sprintf("load builder image from %s", NixImage)))
+
+	builder = builder.With(
+		llb.Security(llb.SecurityModeInsecure),
+		llb.User("0:0"),
+		llb.AddEnv("HOME", "/tmp"),
+		llb.Dir("/workspace"),
+	)
 
 	// Run the nix build command inside the nix image
-	builderSt := builder.Dir("/workspace").Run(
+	builderSt := builder.Run(
 		llb.AddMount("/src", src, llb.Readonly),
 		llb.AddMount("/build", llb.Scratch()),
 		llb.Args([]string{
