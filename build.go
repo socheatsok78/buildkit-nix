@@ -97,8 +97,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalName("configure nix store cache"),
 		).Run(
 			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("cp -afT /nix /mnt/nix"),
-			withInternalName("transfer nix store to cache"),
+			llb.Shlex("cp -anfT /nix /mnt/nix"),
+			withInternalName("configure nix store cache"),
 		)
 		builderSt = builderSt.Run(
 			llb.AddMount(dockerfileDir, *dockerfile.State, llb.Readonly),
@@ -117,11 +117,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				fmt.Sprintf("%s%s", sourceDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
-		)
-		builderSt = builderSt.Run(
-			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("cp -afT /mnt/nix /nix"),
-			withInternalName("transfer nix store to cache"),
 		)
 
 		// Extract the result of the nix build to a new scratch state
