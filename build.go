@@ -179,7 +179,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		layeredRef, err := layeredRes.SingleRef()
 		if err != nil {
 			return nil, err
@@ -190,13 +189,13 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		// Parse the oci config file to get the image configuration
 		var config dockerocispecs.DockerOCIImage
 		if err := json.Unmarshal(configByte, &config); err != nil {
 			return nil, err
 		}
 
+		// Return the final result with the layered reference and the image configuration
 		return &dockerui.BuildResult{
 			Reference: layeredRef,
 			Image:     &config,
