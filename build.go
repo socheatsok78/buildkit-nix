@@ -70,39 +70,46 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
 		withInternalName := nixui.WithInternalName
 		if platform != nil {
-			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
 			nixStoreCacheKey = fmt.Sprintf("nix-store-cache-%s-%s", platform.OS, platform.Architecture)
+			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
 		}
 
 		// Nix store is used to persist the nix store between builds, so that we don't have to rebuild everything from scratch every time
 		nixStore := llb.Scratch()
 
 		// Load the nix image and set it as the base image for the build
-		builderOpts := []llb.ImageOption{
+		builderImageOpts := []llb.ImageOption{
 			llb.WithMetaResolver(c),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
 		}
 		if platform != nil {
-			builderOpts = append(builderOpts, llb.Platform(*platform))
+			builderImageOpts = append(builderImageOpts, llb.Platform(*platform))
 		}
+		if bc.IsNoCache("") {
+			builderImageOpts = append(builderImageOpts, llb.IgnoreCache)
+		}
+		builder := llb.Image(NixImage, builderImageOpts...)
 
-		// Setup builder state
-		builder := llb.Image(NixImage, builderOpts...)
-		builder = builder.With(
-			llb.Dir(workspaceDir),
-		)
+		// Builder working directory is set to /mnt/workspace,
+		// so that the nix build result can be copied to /mnt/workspace/result and extracted later
+		builder = builder.With(llb.Dir(workspaceDir))
 
-		// Run the nix build command inside the nix image
-		builderSt := builder.Run(
+		// restore nix store cache
+		nixStoreRestoreOpts := []llb.RunOption{
 			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("cp -anfT /nix /mnt/nix"),
-			withInternalName("configure nix store cache"),
-		)
-		builderSt = builderSt.Run(
+			llb.Shlex("cp -anfT /mnt/nix /nix"),
+			withInternalName("restore nix store cache"),
+		}
+		if bc.IsNoCache("nix-store") {
+			nixStoreRestoreOpts = append(nixStoreRestoreOpts, llb.IgnoreCache)
+		}
+		builderSt := builder.Run(nixStoreRestoreOpts...)
+
+		// Nix build
+		nixBuildOpts := []llb.RunOption{
 			llb.AddMount(dockerfileDir, *dockerfile.State, llb.Readonly),
 			llb.AddMount(sourceDir, src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
-			// llb.AddMount("/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.Args([]string{
 				"nix",
 				"--option", "sandbox", "false",
@@ -115,10 +122,31 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				fmt.Sprintf("%s%s", sourceDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
-		)
+		}
+		if bc.IsNoCache("nix-build") {
+			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
+		}
+		builderSt = builderSt.Run(nixBuildOpts...)
+
+		// save nix store cache
+		nixStoreSaveOpts := []llb.RunOption{
+			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex("cp -anfT /nix /mnt/nix"),
+			withInternalName("save nix store cache"),
+		}
+		if bc.IsNoCache("nix-store") {
+			nixStoreSaveOpts = append(nixStoreSaveOpts, llb.IgnoreCache)
+		}
+		builderSt = builderSt.Run(nixStoreSaveOpts...)
 
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
+		extractFileOpts := []llb.ConstraintsOpt{
+			withInternalName("extracting result layers"),
+		}
+		if bc.IsNoCache("extract") {
+			extractFileOpts = append(extractFileOpts, llb.IgnoreCache)
+		}
 		extractSt := extract.File(
 			llb.Copy(
 				builderSt.GetMount("/"),
@@ -126,7 +154,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					AttemptUnpack: true,
 				},
 			),
-			withInternalName("extracting result layers"),
+			extractFileOpts...,
 		)
 
 		// Prepare the builder state to extract the manifest.json file
@@ -158,11 +186,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Create a new scratch state and overlay the layers from the manifest.json file to it
 		layered := llb.Scratch()
 		for _, layer := range manifest.Layers {
+			layeredFileOpts := []llb.ConstraintsOpt{
+				withInternalName(fmt.Sprintf("importing layer: %s", layer)),
+			}
+			if bc.IsNoCache("layered") {
+				layeredFileOpts = append(layeredFileOpts, llb.IgnoreCache)
+			}
 			layered = layered.File(
 				llb.Copy(extractSt, layer, "/", &llb.CopyInfo{
 					AttemptUnpack: true,
 				}),
-				withInternalName(fmt.Sprintf("importing layer: %s", layer)),
+				layeredFileOpts...,
 			)
 		}
 
