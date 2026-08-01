@@ -62,12 +62,16 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	// Load the source code from the build context
 	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), dockerui.WithInternalName("load source from build context"))
 
+	// Nix Store cache key
+	nixStoreCacheKey := "nix-store-cache"
+
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
 		withInternalName := nixui.WithInternalName
 		if platform != nil {
 			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
+			nixStoreCacheKey = fmt.Sprintf("nix-store-cache-%s-%s", platform.OS, platform.Architecture)
 		}
 
 		// Load the nix image and set it as the base image for the build
@@ -79,6 +83,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			builderOpts = append(builderOpts, llb.Platform(*platform))
 		}
 
+		nixStore := llb.Scratch()
+
 		// Setup builder state
 		builder := llb.Image(NixImage, builderOpts...)
 		builder = builder.With(
@@ -87,9 +93,18 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Run the nix build command inside the nix image
 		builderSt := builder.Run(
+			llb.Shlex("mkdir -p /var/cache/nix"),
+			withInternalName("configure nix store cache"),
+		).Run(
+			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex("cp -afT /nix /mnt/nix"),
+			withInternalName("transfer nix store to cache"),
+		)
+		builderSt = builderSt.Run(
 			llb.AddMount(dockerfileDir, *dockerfile.State, llb.Readonly),
 			llb.AddMount(sourceDir, src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
+			llb.AddMount("/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.Args([]string{
 				"nix",
 				"--option", "sandbox", "false",
@@ -102,6 +117,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				fmt.Sprintf("%s%s", sourceDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
+		)
+		builderSt = builderSt.Run(
+			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex("cp -afT /mnt/nix /nix"),
+			withInternalName("transfer nix store to cache"),
 		)
 
 		// Extract the result of the nix build to a new scratch state
