@@ -23,6 +23,11 @@ const (
 	keyTarget      = "target"
 )
 
+const (
+	srcDir       = "/mnt/src"
+	workspaceDir = "/mnt/workspace"
+)
+
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	c = &withResolveCache{Client: c}
 	bc, err := dockerui.NewClient(c)
@@ -69,12 +74,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Configure builder
 		builder = builder.With(
-			llb.Dir("/workspace"),
+			llb.Dir(workspaceDir),
 		)
 
 		// Run the nix build command inside the nix image
 		builderSt := builder.Run(
-			llb.AddMount("/src", src, llb.Readonly),
+			llb.AddMount(srcDir, src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.Args([]string{
 				"nix",
@@ -85,7 +90,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"--show-trace",
 				"--log-format", "raw",
 				"build",
-				fmt.Sprintf("/src%s", target),
+				fmt.Sprintf("%s%s", srcDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
 		)
@@ -93,7 +98,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
 		extractSt := extract.File(
-			llb.Copy(builderSt.GetMount("/"), "/workspace/result", "/", &llb.CopyInfo{
+			llb.Copy(builderSt.GetMount("/"), fmt.Sprintf("%s/result", workspaceDir), "/", &llb.CopyInfo{
 				AttemptUnpack: true,
 			}),
 			withInternalName("extracting result layers"),
@@ -178,3 +183,31 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 	return rb.Finalize()
 }
+
+// func wrapSource(err error, sm *llb.SourceMap, ranges []parser.Range) error {
+// 	if sm == nil {
+// 		return err
+// 	}
+// 	s := &errdefs.Source{
+// 		Info: &pb.SourceInfo{
+// 			Data:       sm.Data,
+// 			Filename:   sm.Filename,
+// 			Language:   sm.Language,
+// 			Definition: sm.Definition.ToPB(),
+// 		},
+// 		Ranges: make([]*pb.Range, 0, len(ranges)),
+// 	}
+// 	for _, r := range ranges {
+// 		s.Ranges = append(s.Ranges, &pb.Range{
+// 			Start: &pb.Position{
+// 				Line:      int32(r.Start.Line),
+// 				Character: int32(r.Start.Character),
+// 			},
+// 			End: &pb.Position{
+// 				Line:      int32(r.End.Line),
+// 				Character: int32(r.End.Character),
+// 			},
+// 		})
+// 	}
+// 	return errdefs.WithSource(err, s)
+// }
