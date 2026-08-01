@@ -42,10 +42,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	// Load the nix image and set it as the base image for the build
 	builder := llb.Image(NixImage, llb.WithMetaResolver(c), nixui.WithInternalName(fmt.Sprintf("load builder image from %s", NixImage)))
 
+	// Configure builder
 	builder = builder.With(
-		llb.Security(llb.SecurityModeInsecure),
-		llb.User("0:0"),
-		llb.AddEnv("HOME", "/tmp"),
 		llb.Dir("/workspace"),
 	)
 
