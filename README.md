@@ -38,7 +38,7 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 - [ ] Nix derivations using `pkgs.dockerTools.buildImage` & `pkgs.dockerTools.buildLayeredImage`
 - [x] Nix packages using Flakes `nix build .#<package>` syntax
 - [x] Multi-platform builds with `docker buildx build` and `docker buildx bake` commands
-- [ ] Build cache support for Nix store and Docker layers
+- [x] Build cache support for Nix store and Docker layers
 - [ ] Named contexts for frontend (unsupported frontend capability moby.buildkit.frontend.contexts)
 
 ## License
