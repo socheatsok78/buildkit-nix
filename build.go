@@ -59,6 +59,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			"build",
 			"--option", "build-users-group", "",
 			fmt.Sprintf("/src%s", target),
+			"--impure",
 		}),
 	)
 
