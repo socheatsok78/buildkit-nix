@@ -82,6 +82,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"--option", "filter-syscalls", "false",
 				"--extra-experimental-features", "nix-command",
 				"--extra-experimental-features", "flakes",
+				"--show-trace",
+				"--log-format", "raw",
 				"build",
 				fmt.Sprintf("/src%s", target),
 			}),
