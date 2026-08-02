@@ -35,11 +35,15 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 
 ## Roadmap
 
-- [ ] Nix derivations using `pkgs.dockerTools.buildImage` & `pkgs.dockerTools.buildLayeredImage`
 - [x] Nix packages using Flakes `nix build .#<package>` syntax
-- [x] Multi-platform builds with `docker buildx build` and `docker buildx bake` commands
 - [x] Build cache support for Nix store and Docker layers
-- [ ] Named contexts for frontend (unsupported frontend capability moby.buildkit.frontend.contexts)
+- [x] Multi-platform builds with `docker buildx build` and `docker buildx bake` commands
+
+## Caveats
+
+- Nix derivations using `pkgs.dockerTools.buildImage` & `pkgs.dockerTools.buildLayeredImage`, there is no plan to support building Nix derivation directly yet. Maybe in the future.
+
+- Named contexts for frontend `(unsupported frontend capability moby.buildkit.frontend.contexts)`, there is no way to reference a named context in the `flake.nix` file, so the implementation is to remove pesky warning and errors about named contexts.
 
 ## License
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
