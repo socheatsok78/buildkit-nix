@@ -16,14 +16,6 @@ target "dockerfile" {
     ]
     context = "."
     dockerfile = "bootstrap.Dockerfile"
-    platforms = [
-        "linux/amd64",
-        "linux/arm64",
-    ]
-    tags = [
-        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
-        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
-    ]
 }
 
 target "flakes" {
@@ -34,6 +26,10 @@ target "flakes" {
     context = "."
     dockerfile = "flake.nix"
     target = "nixfile-frontend-image"
+}
+
+target "default" {
+    inherits = [ "flakes" ]
     platforms = [
         "linux/amd64",
         "linux/arm64",
@@ -42,8 +38,4 @@ target "flakes" {
         "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
         "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
     ]
-}
-
-target "default" {
-    inherits = [ "flakes" ]
 }
