@@ -2,6 +2,14 @@ name: Docker
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target to build'
+        required: false
+        type: choice
+        options:
+          - flakes
+          - dockerfile
   push:
     branches:
       - main
@@ -20,6 +28,7 @@ jobs:
       contents: read
       packages: write
     with:
+      targets: ${{ github.event.inputs.target || 'flakes' }}
       permit-login: ${{ github.event_name != 'pull_request' }}
       permit-push: ${{ github.event_name != 'pull_request' }}
       permit-cache: ${{ github.event_name != 'pull_request' }}
