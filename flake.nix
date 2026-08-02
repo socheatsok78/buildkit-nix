@@ -1,4 +1,4 @@
-# syntax=ghcr.io/socheatsok78/buildkit-nix:experimental
+# syntax=ghcr.io/socheatsok78/nixfile-frontend:experimental
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
