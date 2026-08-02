@@ -21,6 +21,7 @@ target "dockerfile" {
         "linux/arm64",
     ]
     tags = [
+        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
         "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
     ]
 }
@@ -38,6 +39,7 @@ target "flakes" {
         "linux/arm64",
     ]
     tags = [
+        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
         "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
     ]
 }
