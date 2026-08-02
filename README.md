@@ -38,6 +38,10 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 > - Using `pkgs.dockerTools.buildImage` will produce a single image with a single layer for all files (and dependencies).
 > - Using `pkgs.dockerTools.buildLayeredImage` will produce a single image, using multiple layers to improve sharing between images
 
+## Customization
+
+- `BUILDKIT_NIX_IMAGE`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
+
 ## Example
 
 See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-nix-demo) for a working example of how to use this frontend.
