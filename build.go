@@ -17,19 +17,21 @@ import (
 
 const (
 	buildArgPrefix      = "build-arg:"
-	keyTarget           = "target"
 	keyLocalNameContext = "context"
+	keyTarget           = "target"
 )
 
 const (
 	DefaultNixImage = "docker.io/nixos/nix:latest"
 	keyNixImage     = "BUILDKIT_NIX_IMAGE"
+	keyNixSessionID = "BUILDKIT_NIX_SESSIONID"
 )
 
 const (
-	sourceDir     = "/mnt/source"
-	dockerfileDir = "/mnt/dockerfile"
-	workspaceDir  = "/mnt/workspace"
+	mountDockerfileDir    = "/mnt/dockerfile"
+	mountNixStoreCacheDir = "/mnt/nix"
+	mountSourceDir        = "/mnt/source"
+	mountWorkspaceDir     = "/mnt/workspace"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
@@ -75,7 +77,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	// The dockerui.Client will handle the platform selection and build execution for us
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
 		withInternalName := nixui.WithInternalName
-		if platform != nil {
+		if bc.MultiPlatformRequested {
 			nixStoreCacheKey = fmt.Sprintf("nix-store-cache-%s-%s", platform.OS, platform.Architecture)
 			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
 		}
@@ -88,23 +90,23 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.WithMetaResolver(c),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
 		}
-		if platform != nil {
+		if bc.MultiPlatformRequested {
 			builderImageOpts = append(builderImageOpts, llb.Platform(*platform))
 		}
-		if bc.IsNoCache("") {
+		if bc.IsNoCache("builder") {
 			builderImageOpts = append(builderImageOpts, llb.IgnoreCache)
 		}
 		builder := llb.Image(NixImage, builderImageOpts...)
 
 		// Builder working directory is set to /mnt/workspace,
 		// so that the nix build result can be copied to /mnt/workspace/result and extracted later
-		builder = builder.With(llb.Dir(workspaceDir))
+		builder = builder.With(llb.Dir(mountWorkspaceDir))
 
 		// restore nix store cache
 		nixStoreRestoreOpts := []llb.RunOption{
-			llb.AddEnv("BUILDKIT_NIX_SESSIONID", c.BuildOpts().SessionID),
-			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("cp -anfT /mnt/nix /nix"),
+			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex(fmt.Sprintf("cp -anfT %s /nix", mountNixStoreCacheDir)),
 			withInternalName("configure nix store"),
 		}
 		if bc.IsNoCache("nix-store") {
@@ -114,7 +116,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
-			llb.AddMount(sourceDir, *src, llb.Readonly),
+			llb.AddMount(mountSourceDir, *src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.Args([]string{
 				"nix",
@@ -125,7 +127,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"--show-trace",
 				"--log-format", "raw",
 				"build",
-				fmt.Sprintf("%s%s", sourceDir, target),
+				fmt.Sprintf("%s%s", mountSourceDir, target),
 			}),
 			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
 		}
@@ -136,9 +138,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
-			llb.AddEnv("BUILDKIT_NIX_SESSIONID", c.BuildOpts().SessionID),
-			llb.AddMount("/mnt/nix", nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("cp -anfT /nix /mnt/nix"),
+			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex(fmt.Sprintf("cp -anfT /nix %s", mountNixStoreCacheDir)),
 			withInternalName("create nix store snapshot"),
 		}
 		if bc.IsNoCache("nix-store") {
@@ -157,7 +159,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		extractSt := extract.File(
 			llb.Copy(
 				builderSt.GetMount("/"),
-				fmt.Sprintf("%s/result", workspaceDir), "/", &llb.CopyInfo{
+				fmt.Sprintf("%s/result", mountWorkspaceDir), "/", &llb.CopyInfo{
 					AttemptUnpack: true,
 				},
 			),
