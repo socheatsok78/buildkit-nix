@@ -43,5 +43,5 @@ target "flakes" {
 }
 
 target "default" {
-    inherits = [ "dockerfile" ]
+    inherits = [ "flakes" ]
 }
