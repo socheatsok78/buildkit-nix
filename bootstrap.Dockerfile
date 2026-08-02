@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ARG GOLANG_IMAGE=golang:1.26.5-alpine
 
 FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS build
