@@ -55,12 +55,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		NixImage = v
 	}
 
-	// Check if a target is specified in the build options, Use it for nix build installables
-	target := ""
-	prettyTarget := ""
-	if v, ok := opts[keyTarget]; ok {
-		target = fmt.Sprintf("#%v", v)
-		prettyTarget = fmt.Sprintf(".%v", target)
+	// If no target is specified, set to "default"
+	if bc.Target == "" {
+		bc.Target = "default"
 	}
 
 	// Load the source code from the build context
@@ -127,9 +124,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"--show-trace",
 				"--log-format", "raw",
 				"build",
-				fmt.Sprintf("%s%s", mountSourceDir, target),
+				fmt.Sprintf("%s#%s", mountSourceDir, bc.Target),
 			}),
-			withInternalName(fmt.Sprintf("nix build %s", prettyTarget)),
+			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
 		}
 		if bc.IsNoCache("nix-build") {
 			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
