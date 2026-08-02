@@ -25,7 +25,7 @@ rec {
     tag = "experimental";
     contents = [ nixfile-frontend ];
     config = {
-      Cmd = [ "${nixfile-frontend}/bin/nixfile-frontend" ];
+      Entrypoint = [ "${nixfile-frontend}/bin/nixfile-frontend" ];
       Labels = {
         "moby.buildkit.frontend.network.none" = "true";
 
