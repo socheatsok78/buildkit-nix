@@ -16,17 +16,14 @@ import (
 )
 
 const (
-	NixImage         = "docker.io/nixos/nix:latest"
-	LocalNameContext = "context"
-
-	buildArgPrefix = "build-arg:"
-	keyTarget      = "target"
+	buildArgPrefix      = "build-arg:"
+	keyTarget           = "target"
+	keyLocalNameContext = "context"
 )
 
 const (
-	// Don't forget to update frontend documentation if you add
-	// a new build-arg: frontend/dockerfile/docs/reference.md
-	keySyntaxArg = "build-arg:BUILDKIT_SYNTAX"
+	DefaultNixImage = "docker.io/nixos/nix:latest"
+	keyNixImage     = "BUILDKIT_NIX_IMAGE"
 )
 
 const (
@@ -48,6 +45,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if strings.HasPrefix(k, buildArgPrefix) {
 			opts[strings.TrimPrefix(k, buildArgPrefix)] = v
 		}
+	}
+
+	// Accept a custom nix image from the build options, otherwise use the default one
+	NixImage := DefaultNixImage
+	if v, ok := opts[keyNixImage]; ok {
+		NixImage = v
 	}
 
 	// Check if a target is specified in the build options, Use it for nix build installables
