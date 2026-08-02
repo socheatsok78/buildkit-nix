@@ -59,7 +59,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the source code from the build context
-	src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), dockerui.WithInternalName("load source from build context"))
+	// src := llb.Local(LocalNameContext, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), dockerui.WithInternalName("load source from build context"))
+	src, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
+	if err != nil {
+		return nil, err
+	}
 
 	// Nix Store cache key
 	nixStoreCacheKey := "nix-store-cache"
@@ -107,7 +111,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
-			llb.AddMount(sourceDir, src, llb.Readonly),
+			llb.AddMount(sourceDir, *src, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.Args([]string{
 				"nix",
