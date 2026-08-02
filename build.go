@@ -7,10 +7,15 @@ import (
 	"strings"
 
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
+	gwpb "github.com/moby/buildkit/frontend/gateway/pb"
+	"github.com/moby/buildkit/solver/errdefs"
+	"github.com/moby/buildkit/solver/pb"
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pkg/errors"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
@@ -21,6 +26,12 @@ const (
 
 	buildArgPrefix = "build-arg:"
 	keyTarget      = "target"
+)
+
+const (
+	// Don't forget to update frontend documentation if you add
+	// a new build-arg: frontend/dockerfile/docs/reference.md
+	keySyntaxArg = "build-arg:BUILDKIT_SYNTAX"
 )
 
 const (
@@ -36,6 +47,38 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		return nil, err
 	}
 	opts := bc.BuildOpts().Opts
+	allowForward, capsError := validateCaps(opts["frontend.caps"])
+	if !allowForward && capsError != nil {
+		return nil, capsError
+	}
+
+	// Read the flake.nix as the entrypoint for the build
+	// The build process doesn't technically use this layer as build source but the local://context instead
+	dockerfile, err := bc.ReadEntrypoint(ctx, "nix")
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := opts["cmdline"]; !ok {
+		if cmdline, ok := opts[keySyntaxArg]; ok {
+			p := strings.SplitN(strings.TrimSpace(cmdline), " ", 2)
+			res, err := forwardGateway(ctx, c, p[0], cmdline)
+			if err != nil && len(errdefs.Sources(err)) == 0 {
+				return nil, errors.Wrapf(err, "failed with %s = %s", keySyntaxArg, cmdline)
+			}
+			return res, err
+		} else if ref, cmdline, loc, ok := parser.DetectSyntax(dockerfile.Data); ok {
+			res, err := forwardGateway(ctx, c, ref, cmdline)
+			if err != nil && len(errdefs.Sources(err)) == 0 {
+				return nil, wrapSource(err, dockerfile.SourceMap, loc)
+			}
+			return res, err
+		}
+	}
+
+	if capsError != nil {
+		return nil, capsError
+	}
 
 	// also accept build args from Moby
 	for k, v := range opts {
@@ -50,13 +93,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	if v, ok := opts[keyTarget]; ok {
 		target = fmt.Sprintf("#%v", v)
 		prettyTarget = fmt.Sprintf(".%v", target)
-	}
-
-	// Read the flake.nix as the entrypoint for the build
-	// The build process doesn't technically use this layer as build source but the local://context instead
-	dockerfile, err := bc.ReadEntrypoint(ctx, "nix")
-	if err != nil {
-		return nil, err
 	}
 
 	// Load the source code from the build context
@@ -240,4 +276,86 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	return rb.Finalize()
+}
+
+func forwardGateway(ctx context.Context, c client.Client, ref string, cmdline string) (*client.Result, error) {
+	opts := c.BuildOpts().Opts
+	if opts == nil {
+		opts = map[string]string{}
+	}
+	opts["cmdline"] = cmdline
+	opts["source"] = ref
+
+	gwcaps := c.BuildOpts().Caps
+	var frontendInputs map[string]*pb.Definition
+	if (&gwcaps).Supports(gwpb.CapFrontendInputs) == nil {
+		inputs, err := c.Inputs(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get frontend inputs")
+		}
+
+		frontendInputs = make(map[string]*pb.Definition)
+		for name, state := range inputs {
+			def, err := state.Marshal(ctx)
+			if err != nil {
+				return nil, err
+			}
+			frontendInputs[name] = def.ToPB()
+		}
+	}
+
+	return c.Solve(ctx, client.SolveRequest{
+		Frontend:       "gateway.v0",
+		FrontendOpt:    opts,
+		FrontendInputs: frontendInputs,
+	})
+}
+
+func warnOpts(r []parser.Range, detail [][]byte, url string) client.WarnOpts {
+	opts := client.WarnOpts{Level: 1, Detail: detail, URL: url}
+	if r == nil {
+		return opts
+	}
+	opts.Range = []*pb.Range{}
+	for _, r := range r {
+		opts.Range = append(opts.Range, &pb.Range{
+			Start: &pb.Position{
+				Line:      int32(r.Start.Line),
+				Character: int32(r.Start.Character),
+			},
+			End: &pb.Position{
+				Line:      int32(r.End.Line),
+				Character: int32(r.End.Character),
+			},
+		})
+	}
+	return opts
+}
+
+func wrapSource(err error, sm *llb.SourceMap, ranges []parser.Range) error {
+	if sm == nil {
+		return err
+	}
+	s := &errdefs.Source{
+		Info: &pb.SourceInfo{
+			Data:       sm.Data,
+			Filename:   sm.Filename,
+			Language:   sm.Language,
+			Definition: sm.Definition.ToPB(),
+		},
+		Ranges: make([]*pb.Range, 0, len(ranges)),
+	}
+	for _, r := range ranges {
+		s.Ranges = append(s.Ranges, &pb.Range{
+			Start: &pb.Position{
+				Line:      int32(r.Start.Line),
+				Character: int32(r.Start.Character),
+			},
+			End: &pb.Position{
+				Line:      int32(r.End.Line),
+				Character: int32(r.End.Character),
+			},
+		})
+	}
+	return errdefs.WithSource(err, s)
 }
