@@ -9,10 +9,22 @@ variable "GITHUB_REPOSITORY_OWNER" {
 target "docker-metadata-action" {}
 target "github-metadata-action" {}
 
+target "nixfile-frontend" {
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ]
+    tags = [
+        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
+        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
+    ]
+}
+
 target "dockerfile" {
     inherits = [ 
         "docker-metadata-action",
         "github-metadata-action",
+        "nixfile-frontend",
     ]
     context = "."
     dockerfile = "bootstrap.Dockerfile"
@@ -22,6 +34,7 @@ target "flakes" {
     inherits = [ 
         "docker-metadata-action",
         "github-metadata-action",
+        "nixfile-frontend",
     ]
     context = "."
     dockerfile = "flake.nix"
@@ -30,12 +43,4 @@ target "flakes" {
 
 target "default" {
     inherits = [ "flakes" ]
-    platforms = [
-        "linux/amd64",
-        "linux/arm64",
-    ]
-    tags = [
-        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
-        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
-    ]
 }
