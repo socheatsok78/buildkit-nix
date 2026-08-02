@@ -32,7 +32,7 @@ target "flakes" {
     ]
     context = "."
     dockerfile = "flake.nix"
-    target = "buildkit-nix-image"
+    target = "nixfile-frontend-image"
     platforms = [
         "linux/amd64",
         "linux/arm64",
