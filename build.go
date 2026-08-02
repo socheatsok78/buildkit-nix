@@ -67,6 +67,16 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		return nil, err
 	}
 
+	// TODO: Implement secret support for nix.conf:
+	//       - access-tokens
+	//       - impure-env
+	//       - netrc-file
+	//       - secret-key-files
+
+	// TODO: Implement support for build-args:
+	//       - substituters
+	//       - trusted-substituters
+
 	// Nix Store cache key
 	nixStoreCacheKey := "nix-store-cache"
 
