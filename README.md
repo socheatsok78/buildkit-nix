@@ -4,6 +4,13 @@
 ## About
 An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 
+## Image
+
+| Registry                    | Image                                 |
+| --------------------------- | ------------------------------------- |
+| [Docker Hub]                | socheatsok78/nixfile-frontend         |
+| [GitHub Container Registry] | ghcr.io/socheatsok78/nixfile-frontend |
+
 ## Usage
 
 In the `flake.nix` add the following snippet to the top of the file:
