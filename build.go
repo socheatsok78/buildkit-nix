@@ -131,6 +131,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				"nix",
 				"--option", "sandbox", "false",
 				"--option", "filter-syscalls", "false",
+				"--option", "auto-optimise-store", "true",
 				"--extra-experimental-features", "nix-command",
 				"--extra-experimental-features", "flakes",
 				"--show-trace",
