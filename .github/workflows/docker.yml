@@ -34,6 +34,7 @@ jobs:
       permit-login: ${{ github.event_name != 'pull_request' }}
       permit-push: ${{ github.event_name != 'pull_request' }}
       permit-cache: ${{ github.event_name != 'pull_request' }}
+      custom-cache-mode: max
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
