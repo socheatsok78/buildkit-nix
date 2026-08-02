@@ -145,6 +145,18 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 		builderSt = builderSt.Run(nixBuildOpts...)
 
+		// perform garbage collection on a nix store
+		nixStoreGCOpts := []llb.RunOption{
+			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.Shlex("nix-store --gc --print-dead"),
+			withInternalName("perform garbage collection on a nix store"),
+		}
+		if bc.IsNoCache("nix-store") {
+			nixStoreGCOpts = append(nixStoreGCOpts, llb.IgnoreCache)
+		}
+		builderSt = builderSt.Run(nixStoreGCOpts...)
+
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
