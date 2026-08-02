@@ -21,7 +21,7 @@ target "dockerfile" {
         "linux/arm64",
     ]
     tags = [
-        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/buildkit-nix:experimental",
+        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
     ]
 }
 
@@ -38,10 +38,10 @@ target "flakes" {
         "linux/arm64",
     ]
     tags = [
-        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/buildkit-nix:experimental",
+        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:experimental",
     ]
 }
 
 target "default" {
-    inherits = [ "flakes" ]
+    inherits = [ "dockerfile" ]
 }

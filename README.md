@@ -9,7 +9,7 @@ An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 In the `flake.nix` add the following snippet to the top of the file:
 
 ```nix
-# syntax=ghcr.io/socheatsok78/buildkit-nix:experimental
+# syntax=ghcr.io/socheatsok78/nixfile-frontend:experimental
 ```
 > [!NOTE]
 > The package must be built using either `pkgs.dockerTools.buildImage` or `pkgs.dockerTools.buildLayeredImage` to produce a Docker image.
