@@ -2,14 +2,14 @@
   pkgs ? import <nixpkgs> { },
 }:
 rec {
-  buildkit-nix = pkgs.buildGoModule (finalAttrs: {
-    pname = "buildkit-nix";
+  nixfile-frontend = pkgs.buildGoModule (finalAttrs: {
+    pname = "nixfile-frontend";
     version = "experimental";
 
     src = ./.;
 
     subPackages = [
-      "cmd/nix-frontend"
+      "cmd/nixfile-frontend"
     ];
 
     vendorHash = "sha256-4doFp5UonyTpQlpMewEbaJXy9m94NAlQDVTH7YnBpvA=";
@@ -20,16 +20,16 @@ rec {
     ];
   });
 
-  buildkit-nix-image = pkgs.dockerTools.buildLayeredImage {
-    name = "buildkit-nix";
+  nixfile-frontend-image = pkgs.dockerTools.buildLayeredImage {
+    name = "nixfile-frontend";
     tag = "experimental";
-    contents = [ buildkit-nix ];
+    contents = [ nixfile-frontend ];
     config = {
-      Cmd = [ "${buildkit-nix}/bin/nix-frontend" ];
+      Cmd = [ "${nixfile-frontend}/bin/nixfile-frontend" ];
       Labels = {
         "moby.buildkit.frontend.network.none" = "true";
 
-        # nix-frontend isn't technically support these capabilities,
+        # nixfile-frontend isn't technically support these capabilities,
         # This is a workaround for the following error:
         # - buildx bake failed with: ERROR: current frontend does not support defining additional contexts for targets.
         #   Named contexts are supported since Dockerfile v1.4. Use #syntax directive in Dockerfile or update to latest BuildKit.
@@ -38,5 +38,5 @@ rec {
     };
   };
 
-  default = buildkit-nix;
+  default = nixfile-frontend;
 }
