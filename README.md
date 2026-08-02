@@ -56,3 +56,6 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 
 ## License
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+[Docker Hub]: https://hub.docker.com/r/socheatsok78/nixfile-frontend
+[GitHub Container Registry]: https://github.com/socheatsok78/nixfile-frontend/pkgs/container/nixfile-frontend
