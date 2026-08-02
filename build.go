@@ -121,18 +121,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 		builderSt := builder.Run(nixStoreRestoreOpts...)
 
-		// check nix database for consistency
-		nixStoreVerifyOpts := []llb.RunOption{
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
-			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("nix-store --verify --check-contents --repair"),
-			withInternalName("check nix database for consistency"),
-		}
-		if bc.IsNoCache("nix-store") {
-			nixStoreVerifyOpts = append(nixStoreVerifyOpts, llb.IgnoreCache)
-		}
-		builderSt = builderSt.Run(nixStoreVerifyOpts...)
-
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
 			llb.AddMount(mountSourceDir, *src, llb.Readonly),
@@ -156,18 +144,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
 		}
 		builderSt = builderSt.Run(nixBuildOpts...)
-
-		// perform garbage collection on a nix store
-		nixStoreGCOpts := []llb.RunOption{
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
-			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex("nix-store --gc --print-dead"),
-			withInternalName("perform garbage collection on a nix store"),
-		}
-		if bc.IsNoCache("nix-store") {
-			nixStoreGCOpts = append(nixStoreGCOpts, llb.IgnoreCache)
-		}
-		builderSt = builderSt.Run(nixStoreGCOpts...)
 
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
