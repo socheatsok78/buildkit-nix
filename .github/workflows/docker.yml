@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      actions: write
     with:
       targets: ${{ github.event.inputs.target || 'flakes' }}
       enable-dockerhub: ${{ github.event_name != 'pull_request' }}
