@@ -67,15 +67,16 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		return nil, err
 	}
 
-	// TODO: Implement secret support for nix.conf:
-	//       - access-tokens
-	//       - impure-env
-	//       - netrc-file
-	//       - secret-key-files
 	// TODO: Implement support for build-args:
 	//       - substituters
 	//       - trusted-substituters
-	nixBuildSecrets := []llb.RunOption{}
+
+	// Default secrets for nix build, which are optional and can be provided by the user
+	nixBuildSecrets := []llb.RunOption{
+		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID("access-tokens"), llb.SecretOptional),
+		llb.AddSecret("/run/secrets/impure-env", llb.SecretID("impure-env"), llb.SecretOptional),
+		llb.AddSecret("/run/secrets/netrc-file", llb.SecretID("netrc-file"), llb.SecretOptional),
+	}
 
 	// Nix Store cache key
 	nixStoreCacheKey := "nix-store-cache"
@@ -126,16 +127,26 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
-				nix \
-					--option sandbox false \
+				set -euo pipefail
+				buildargs=()
+				for f in /run/secrets/*; do
+					if [ -f "$f" ]; then
+						echo "Detected secret for nix option: $(basename "$f")"
+						buildargs+=("--option" "$(basename "$f")" "$(cat "$f")")
+					fi
+				done
+				echo ""
+				echo "Build log data will stream in below:"
+				nix --option sandbox false \
 					--option filter-syscalls false \
 					--option auto-optimise-store true \
 					--option binary-caches-parallel-connections 15 \
+					--extra-experimental-features configurable-impure-env \
 					--extra-experimental-features nix-command \
 					--extra-experimental-features flakes \
 					--show-trace \
 					--log-format raw \
-				build %s#%s
+				build %s#%s "${buildargs[@]}"
 			`, mountSourceDir, bc.Target),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
 		}
