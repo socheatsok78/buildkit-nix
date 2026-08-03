@@ -128,6 +128,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
 				set -euo pipefail
+
 				buildargs=()
 				for f in /run/secrets/*; do
 					if [ -f "$f" ]; then
@@ -135,6 +136,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 						buildargs+=("--option" "$(basename "$f")" "$(cat "$f")")
 					fi
 				done
+
 				echo -e "\nBuild log data will stream in below:"
 				nix --option sandbox false \
 					--option filter-syscalls false \
@@ -146,6 +148,24 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					--show-trace \
 					--log-format raw \
 				build %s#%s "${buildargs[@]}"
+				echo -e "\nBuild finished!"
+
+				echo -e "\nPerforming post-build checks:\n"
+				if [ -d "$(readlink -f result/)" ]; then
+					echo "- It appears that the build produced a directory instead of a Docker-compatible repository tarball."
+					echo "  This is not supported by buildkit-nix, please check the build logs for errors."
+					echo ""
+					echo "  See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html for more information on how to build Docker images with Nix."
+					exit 1
+				elif ! tar -tf result | grep -q "manifest.json"; then
+					echo "- It appears that the build did not produce a Docker-compatible repository tarball."
+					echo "  This is not supported by buildkit-nix, please check the build logs for errors."
+					echo ""
+					echo "  See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html for more information on how to build Docker images with Nix."
+					exit 1
+				fi
+				echo "-  Found Docker-compatible repository tarball, proceeding with extraction of layers and config file."
+				exit 0
 			`, mountSourceDir, bc.Target),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
 		}
@@ -206,7 +226,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Parse the manifest.json file to get the list of layers and the config file
 		manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("nix build did not produce a manifest.json file, please check the build logs for errors: %w", err)
 		}
 		manifest, err := dockershim.UnmarshalManifest(manifestByte)
 		if err != nil {
