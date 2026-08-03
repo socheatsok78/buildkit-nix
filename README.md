@@ -47,9 +47,14 @@ The frontend can be customized using the following build arguments:
 **Build Secrets**:
 
 You can provide secrets to the frontend using the `--secret` option of `docker buildx build`. The following secrets are supported:
-- `access-tokens`: A file containing access tokens for private Nix channels.
-- `impure-env`: A file containing environment variables to be passed to the Nix build
-- `netrc-file`: A file containing netrc credentials for private Nix channels.
+- `access-tokens`: A file containing access tokens used to access protected GitHub, GitLab, or other locations requiring token-based authentication.  
+    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-access-tokens.
+
+- `impure-env`: A file containing environment variables that are considered impure and should be passed to the Nix build process.  
+    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-impure-env.
+
+- `netrc-file`: If set to an absolute path to a netrc file, Nix will use the HTTP authentication credentials in this file when trying to download from a remote host through HTTP or HTTPS.  
+    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-netrc-file.
 
 > [!NOTE]
 > The build secrets are on-demand and optional, so you can choose to provide them or not. During the `nix build` phase, the frontend will check if the secrets are provided and pass them to the `nix build` command as `--option` arguments. If the secrets are not provided, the frontend will skip them and continue with the build.
