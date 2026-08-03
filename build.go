@@ -129,16 +129,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			nixllb.Shlexf(`
 				set -euo pipefail
 
-				buildargs=()
+				nixopts=()
 				for f in /run/secrets/*; do
 					if [ -f "$f" ]; then
 						echo "Detected secret for nix option: $(basename "$f")"
-						buildargs+=("--option" "$(basename "$f")" "$(cat "$f")")
+						nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
 					fi
 				done
 
 				echo -e "\nBuild log data will stream in below:"
-				nix --option sandbox false \
+				nix "${nixopts[@]}" \
+					--option sandbox false \
 					--option filter-syscalls false \
 					--option auto-optimise-store true \
 					--option binary-caches-parallel-connections 15 \
@@ -147,7 +148,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					--extra-experimental-features flakes \
 					--show-trace \
 					--log-format raw \
-				build %s#%s "${buildargs[@]}"
+				build %s#%s
 				echo -e "\nBuild finished!"
 
 				echo -e "\nPerforming post-build checks:\n"
