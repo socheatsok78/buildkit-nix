@@ -40,7 +40,19 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 
 ## Customization
 
+The frontend can be customized using the following build arguments:
+
 - `BUILDKIT_NIX_IMAGE`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
+
+**Build Secrets**:
+
+You can provide secrets to the frontend using the `--secret` option of `docker buildx build`. The following secrets are supported:
+- `access-tokens`: A file containing access tokens for private Nix channels.
+- `impure-env`: A file containing environment variables to be passed to the Nix build
+- `netrc-file`: A file containing netrc credentials for private Nix channels.
+
+> [!NOTE]
+> The build secrets are on-demand and optional, so you can choose to provide them or not. During the `nix build` phase, the frontend will check if the secrets are provided and pass them to the `nix build` command as `--option` arguments. If the secrets are not provided, the frontend will skip them and continue with the build.
 
 ## Example
 
