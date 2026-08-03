@@ -12,6 +12,7 @@ import (
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
+	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
@@ -71,10 +72,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	//       - impure-env
 	//       - netrc-file
 	//       - secret-key-files
-
 	// TODO: Implement support for build-args:
 	//       - substituters
 	//       - trusted-substituters
+	nixBuildSecrets := []llb.RunOption{}
 
 	// Nix Store cache key
 	nixStoreCacheKey := "nix-store-cache"
@@ -124,20 +125,22 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixBuildOpts := []llb.RunOption{
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
-			llb.Args([]string{
-				"nix",
-				"--option", "sandbox", "false",
-				"--option", "filter-syscalls", "false",
-				"--option", "auto-optimise-store", "true",
-				"--option", "binary-caches-parallel-connections", "15",
-				"--extra-experimental-features", "nix-command",
-				"--extra-experimental-features", "flakes",
-				"--show-trace",
-				"--log-format", "raw",
-				"build",
-				fmt.Sprintf("%s#%s", mountSourceDir, bc.Target),
-			}),
+			nixllb.Shlexf(`
+				nix \
+					--option sandbox false \
+					--option filter-syscalls false \
+					--option auto-optimise-store true \
+					--option binary-caches-parallel-connections 15 \
+					--extra-experimental-features nix-command \
+					--extra-experimental-features flakes \
+					--show-trace \
+					--log-format raw \
+				build %s#%s
+			`, mountSourceDir, bc.Target),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
+		}
+		for _, secret := range nixBuildSecrets {
+			nixBuildOpts = append(nixBuildOpts, secret)
 		}
 		if bc.IsNoCache("nix-build") {
 			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
