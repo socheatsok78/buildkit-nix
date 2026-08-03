@@ -113,7 +113,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixStoreRestoreOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex(fmt.Sprintf("cp -anfT %s /nix", mountNixStoreCacheDir)),
+			llb.Shlexf("cp -anfT %s /nix", mountNixStoreCacheDir),
 			withInternalName("configure nix store"),
 		}
 		if bc.IsNoCache("nix-store") {
@@ -151,7 +151,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixStoreSaveOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlex(fmt.Sprintf("cp -anfT /nix %s", mountNixStoreCacheDir)),
+			llb.Shlexf("cp -anfT /nix %s", mountNixStoreCacheDir),
 			withInternalName("create nix store snapshot"),
 		}
 		if bc.IsNoCache("nix-store") {
