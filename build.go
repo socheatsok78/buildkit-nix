@@ -135,8 +135,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 						buildargs+=("--option" "$(basename "$f")" "$(cat "$f")")
 					fi
 				done
-				echo ""
-				echo "Build log data will stream in below:"
+				echo -e "\nBuild log data will stream in below:"
 				nix --option sandbox false \
 					--option filter-syscalls false \
 					--option auto-optimise-store true \
