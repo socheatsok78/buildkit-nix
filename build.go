@@ -269,7 +269,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			return nil, err
 		}
 		extractRes, err := c.Solve(ctx, client.SolveRequest{
-			Definition: extractDef.ToPB(),
+			Definition:   extractDef.ToPB(),
+			CacheImports: bc.CacheImports,
 		})
 		if err != nil {
 			return nil, err
@@ -312,7 +313,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			return nil, err
 		}
 		layeredRes, err := c.Solve(ctx, client.SolveRequest{
-			Definition: layeredDef.ToPB(),
+			Definition:   layeredDef.ToPB(),
+			CacheImports: bc.CacheImports,
 		})
 		if err != nil {
 			return nil, err
