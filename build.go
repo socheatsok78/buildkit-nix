@@ -115,6 +115,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// setup build environment
 		builderSt := builder.Run(
+			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			nixllb.Shlex(`
 				{
@@ -132,6 +133,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// restore nix store cache
 		nixStoreRestoreOpts := []llb.RunOption{
+			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			nixllb.Shlexf(`
@@ -147,6 +149,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
+			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
@@ -208,6 +211,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
+			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			nixllb.Shlexf(`
