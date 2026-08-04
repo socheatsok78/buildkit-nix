@@ -295,6 +295,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		return &dockerui.BuildResult{
 			Reference: layeredRef,
 			Image:     &config,
+			BaseImage: &config,
 		}, nil
 	})
 	if err != nil {
