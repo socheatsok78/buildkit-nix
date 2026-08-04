@@ -117,7 +117,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		builderSt := builder.Run(
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			nixllb.Shlex(`
-				set -euo pipefail
 				{
 					echo "auto-optimise-store = true"
 					echo "binary-caches-parallel-connections = 15"
@@ -150,7 +149,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
 				set -euo pipefail
+
 				nixopts=()
+				installable="%s#%s"
 
 				echo "Prepare build environment..."
 				echo "extra-experimental-features = configurable-impure-env" >> /etc/nix/nix.conf
@@ -171,7 +172,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				done
 
 				echo -e "\nBuild log data will stream in below:"
-				nix "${nixopts[@]}" --show-trace --log-format raw build %s#%s
+				nix "${nixopts[@]}" --show-trace --log-format raw build "$installable"
 				echo -e "\nBuild finished!"
 
 				echo -e "\nPerforming post-build checks:\n"
