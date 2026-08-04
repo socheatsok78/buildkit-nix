@@ -113,6 +113,24 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// so that the nix build result can be copied to /mnt/workspace/result and extracted later
 		builder = builder.With(llb.Dir(mountWorkspaceDir))
 
+		// setup build environment
+		builderSt := builder.Run(
+			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			nixllb.Shlex(`
+				set -euo pipefail
+				{
+					echo "auto-optimise-store = true"
+					echo "binary-caches-parallel-connections = 15"
+					echo "extra-experimental-features = flakes"
+					echo "extra-experimental-features = nix-command"
+					echo "filter-syscalls = false"
+					# echo "sandbox = false" -- already set by default from nixos/nix image
+				} >> /etc/nix/nix.conf
+				cat /etc/nix/nix.conf
+			`),
+			withInternalName("setup build environment"),
+		)
+
 		// restore nix store cache
 		nixStoreRestoreOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
@@ -123,10 +141,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("nix-store") {
 			nixStoreRestoreOpts = append(nixStoreRestoreOpts, llb.IgnoreCache)
 		}
-		builderSt := builder.Run(nixStoreRestoreOpts...)
+		builderSt = builderSt.Run(nixStoreRestoreOpts...)
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
+			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
@@ -152,16 +171,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				done
 
 				echo -e "\nBuild log data will stream in below:"
-				nix "${nixopts[@]}" \
-					--option sandbox false \
-					--option filter-syscalls false \
-					--option auto-optimise-store true \
-					--option binary-caches-parallel-connections 15 \
-					--extra-experimental-features nix-command \
-					--extra-experimental-features flakes \
-					--show-trace \
-					--log-format raw \
-				build %s#%s
+				nix "${nixopts[@]}" --show-trace --log-format raw build %s#%s
 				echo -e "\nBuild finished!"
 
 				echo -e "\nPerforming post-build checks:\n"
