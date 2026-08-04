@@ -76,6 +76,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID("access-tokens"), llb.SecretOptional),
 		llb.AddSecret("/run/secrets/impure-env", llb.SecretID("impure-env"), llb.SecretOptional),
 		llb.AddSecret("/run/secrets/netrc-file", llb.SecretID("netrc-file"), llb.SecretOptional),
+
+		// Special secret for GitHub token, which is used to access private repositories
+		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 	}
 
 	// Nix Store cache key
@@ -128,8 +131,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
 				set -euo pipefail
-
 				nixopts=()
+
+				echo "Prepare build environment..."
+				# If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
+				if [ -n "${GITHUB_TOKEN:-}" ]; then
+					echo "Detected GITHUB_TOKEN secret, adding to nix options"
+					nixopts+=("--option" "access-tokens" "github.com=${GITHUB_TOKEN}")
+				fi
+
+				# If there are any secrets in /run/secrets, then add them to nix options,
+				# the secret name is the nix option name and the secret value is the nix option value
 				for f in /run/secrets/*; do
 					if [ -f "$f" ]; then
 						echo "Detected secret for nix option: $(basename "$f")"
@@ -166,6 +178,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					exit 1
 				fi
 				echo "-  Found Docker-compatible repository tarball, proceeding with extraction of layers and config file."
+				echo ""
 				exit 0
 			`, mountSourceDir, bc.Target),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
