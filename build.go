@@ -138,8 +138,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			nixllb.Shlexf(`
-				cp -anT %s /nix
+				export NIX_STORE_CACHE_DIR="%s"
 				ls /nix/store > /tmp/nix-store-before.txt
+				if [ -d "${NIX_STORE_CACHE_DIR}/var" ]; then
+					cp -afT "${NIX_STORE_CACHE_DIR}/var" /nix/var
+				fi
+				if [ -d "${NIX_STORE_CACHE_DIR}/store" ]; then
+					for f in "${NIX_STORE_CACHE_DIR}/store"/*; do
+						if ! grep -q "$(basename "$f")" /tmp/nix-store-before.txt; then
+							echo "copying path \"$f\" from nix store snapshot..."
+							cp -afT "$f" "/nix/store/$(basename "$f")"
+						fi
+					done
+					ls /nix/store > /tmp/nix-store-before.txt
+				fi
 			`, mountNixStoreCacheDir),
 			withInternalName("configure nix store"),
 		}
