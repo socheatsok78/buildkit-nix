@@ -134,6 +134,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				nixopts=()
 
 				echo "Prepare build environment..."
+				echo "extra-experimental-features = configurable-impure-env" >> /etc/nix/nix.conf
+
 				# If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
 				if [ -n "${GITHUB_TOKEN:-}" ]; then
 					echo "Detected GITHUB_TOKEN secret, adding to nix options"
@@ -155,7 +157,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					--option filter-syscalls false \
 					--option auto-optimise-store true \
 					--option binary-caches-parallel-connections 15 \
-					--extra-experimental-features configurable-impure-env \
 					--extra-experimental-features nix-command \
 					--extra-experimental-features flakes \
 					--show-trace \
