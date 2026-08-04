@@ -134,7 +134,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixStoreRestoreOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlexf("cp -anT %s /nix", mountNixStoreCacheDir),
+			nixllb.Shlexf(`
+				cp -anT %s /nix
+				ls /nix/store > /tmp/nix-store-before.txt
+			`, mountNixStoreCacheDir),
 			withInternalName("configure nix store"),
 		}
 		if bc.IsNoCache("nix-store") {
@@ -207,7 +210,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixStoreSaveOpts := []llb.RunOption{
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.Shlexf("cp -afT /nix %s", mountNixStoreCacheDir),
+			nixllb.Shlexf(`
+				export NIX_STORE_CACHE_DIR="%s"
+				mkdir -p "${NIX_STORE_CACHE_DIR}/store" "${NIX_STORE_CACHE_DIR}/var"
+				cp -afT /nix/var "${NIX_STORE_CACHE_DIR}/var"
+				for f in /nix/store/*; do
+					if ! grep -q "$(basename "$f")" /tmp/nix-store-before.txt; then
+						echo "copying path \"$f\" to nix store snapshot..."
+						cp -afT "$f" "${NIX_STORE_CACHE_DIR}/store/$(basename "$f")"
+					fi
+				done
+			`, mountNixStoreCacheDir),
 			withInternalName("create nix store snapshot"),
 		}
 		if bc.IsNoCache("nix-store") {
