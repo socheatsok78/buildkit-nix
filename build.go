@@ -82,14 +82,14 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Nix Store cache key
-	nixStoreCacheKey := "nix-store-cache"
+	nixStoreCacheKey := bc.CacheIDNamespace + "-nix-store-cache"
 
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
-			nixStoreCacheKey = fmt.Sprintf("nix-store-cache-%s-%s", platform.OS, platform.Architecture)
+			nixStoreCacheKey = fmt.Sprintf("%s-nix-store-cache-%s-%s", bc.CacheIDNamespace, platform.OS, platform.Architecture)
 			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
 		}
 
