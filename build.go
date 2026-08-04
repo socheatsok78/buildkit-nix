@@ -138,7 +138,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 				# If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
 				if [ -n "${GITHUB_TOKEN:-}" ]; then
-					echo "Detected GITHUB_TOKEN secret, adding to nix options"
+					echo "- Detected GITHUB_TOKEN secret, adding to nix options"
 					nixopts+=("--option" "access-tokens" "github.com=${GITHUB_TOKEN}")
 				fi
 
@@ -146,7 +146,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				# the secret name is the nix option name and the secret value is the nix option value
 				for f in /run/secrets/*; do
 					if [ -f "$f" ]; then
-						echo "Detected secret for nix option: $(basename "$f")"
+						echo "- Detected secret for nix option: $(basename "$f")"
 						nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
 					fi
 				done
