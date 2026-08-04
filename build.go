@@ -118,6 +118,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			nixllb.Shlex(`
+				nix --version
 				{
 					echo "auto-optimise-store = true"
 					echo "binary-caches-parallel-connections = 15"
