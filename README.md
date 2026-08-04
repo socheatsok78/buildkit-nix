@@ -4,6 +4,8 @@
 ## About
 An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 
+[Source]
+
 ## Image
 
 | Registry                    | Image                                 |
@@ -76,7 +78,9 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 - Named contexts for frontend `(unsupported frontend capability moby.buildkit.frontend.contexts)`, there is no way to reference a named context in the `flake.nix` file, so the implementation is to remove pesky warning and errors about named contexts.
 
 ## License
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE] file for details.
 
+[Source]: https://github.com/socheatsok78/buildkit-nix
+[LICENSE]: https://github.com/socheatsok78/buildkit-nix/blob/main/LICENSE
 [Docker Hub]: https://hub.docker.com/r/socheatsok78/nixfile-frontend
 [GitHub Container Registry]: https://github.com/socheatsok78/nixfile-frontend/pkgs/container/nixfile-frontend
