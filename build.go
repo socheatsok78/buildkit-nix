@@ -22,6 +22,7 @@ const (
 	buildArgPrefix      = "build-arg:"
 	keyLocalNameContext = "context"
 	keyTarget           = "target"
+	keySource           = "source"
 )
 
 const (
@@ -58,6 +59,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		NixImage = v
 	}
 
+	source := ""
+	if v, ok := opts[keySource]; ok {
+		source = v
+	}
+
 	// If no target is specified, set to "default"
 	if bc.Target == "" {
 		bc.Target = "default"
@@ -92,7 +98,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		} else {
 			p = platforms.DefaultSpec()
 		}
-		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/nix/store", bc.CacheIDNamespace, p.OS, p.Architecture))
+		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s/%s/nix/store", bc.CacheIDNamespace, p.OS, p.Architecture, source, bc.Target))
 
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
@@ -124,7 +130,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// setup build environment
 		builder = builder.Run(
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
-			nixllb.Shlex(`
+			nixllb.Shlexf(`
 				nix --version
 				{
 					echo "auto-optimise-store = true"
