@@ -37,7 +37,7 @@ const (
 	mountDockerfileDir    = "/mnt/dockerfile"
 	mountNixStoreCacheDir = "/mnt/nix"
 	mountSourceDir        = "/mnt/source"
-	mountWorkspaceDir     = "/mnt/workspace"
+	mountShelterDir       = "/shelter"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
@@ -100,16 +100,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/nix/store", bc.CacheIDNamespace, nixImageDigest, bc.Target))
+		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s/nix", bc.CacheIDNamespace, nixImageDigest, p.OS, p.Architecture))
 
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
 			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
 		}
 
+		// Shelter
+		shelter := llb.Scratch()
+
 		// Load the nix image and set it as the base image for the build
 		builderImageOpts := []llb.ImageOption{
 			llb.Platform(p),
+			llb.ResolveDigest(true),
 			llb.WithExportCache(),
 			llb.WithMetaResolver(c),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
@@ -121,16 +125,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
-			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
-			// llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
+			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
+			llb.AddMount(mountShelterDir, shelter),
 			llb.AddMount(mountSourceDir, *mainContext),
 			llb.Dir(mountSourceDir),
 			nixllb.Shlexf(`
 				set -euo pipefail
 
-				mkdir -p /mnt/workspace
+				BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
+				BUILDKIT_NIX_BUILD_TARGET=${BUILDKIT_NIX_BUILD_TARGET:-default}
+				BUILDKIT_NIX_STORE_CACHE_KEY=${BUILDKIT_NIX_STORE_CACHE_KEY:-}
 
 				echo "Setup build environment"
 				nix --version
@@ -171,24 +179,21 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				nix "${nixopts[@]}" --show-trace --log-format raw build ".#${BUILDKIT_NIX_BUILD_TARGET}"
 				echo -e "\nBuild finished!"
 
-				echo -e "\nPerforming post-build checks:\n"
-				if [ -d "$(readlink -f result/)" ]; then
-					echo "- It appears that the build produced a directory instead of a Docker-compatible repository tarball."
-					echo "  This is not supported by buildkit-nix, please check the build logs for errors."
-					echo ""
-					echo "  See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html for more information on how to build Docker images with Nix."
-					exit 1
-				elif ! tar -tf result | grep -q "manifest.json"; then
-					echo "- It appears that the build did not produce a Docker-compatible repository tarball."
-					echo "  This is not supported by buildkit-nix, please check the build logs for errors."
-					echo ""
-					echo "  See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html for more information on how to build Docker images with Nix."
-					exit 1
+				if [ -d "$(readlink -f result)" ]; then
+					echo -n "derivation" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
+					mkdir -p "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
+					cp -af result/* "${BUILDKIT_NIX_BUILD_SHELTER}/result"
+					cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
+				else
+					if tar -tf result | grep -q manifest.json; then
+						echo -n "ocispec" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
+						cp $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result"
+					else
+						echo "ERROR: nix build did not produce a valid result"
+						exit 1
+					fi
 				fi
 
-				echo "-  Found Docker-compatible repository tarball, proceeding with extraction of layers and config file."
-				echo "-  Copying the result of the nix build to the workspace directory for further processing..."
-				cp -R $(nix-store -Rq result/) /mnt/workspace/result
 				echo ""
 				exit 0
 			`),
@@ -200,7 +205,34 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("nix-build") {
 			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
 		}
-		builder = builder.Run(nixBuildOpts...).Root()
+		builderSt := builder.Run(nixBuildOpts...)
+
+		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
+		shelter = builderSt.GetMount(mountShelterDir)
+
+		// Marshal the shelter state to a definition and solve it to get a reference to the result of the nix build
+		shelterDef, err := shelter.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+		if err != nil {
+			return nil, err
+		}
+		shelterRes, err := c.Solve(ctx, client.SolveRequest{
+			Definition:   shelterDef.ToPB(),
+			CacheImports: bc.CacheImports,
+		})
+		if err != nil {
+			return nil, err
+		}
+		shelterRef, err := shelterRes.SingleRef()
+		if err != nil {
+			return nil, err
+		}
+
+		// Read the result type from the shelter state to determine how to handle the result of the nix build
+		resultTypeByte, err := shelterRef.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
+		if err != nil {
+			return nil, err
+		}
+		resultType := strings.TrimSpace(string(resultTypeByte))
 
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
@@ -212,89 +244,104 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 		extract = extract.File(
 			llb.Copy(
-				builder,
-				fmt.Sprintf("%s/result", mountWorkspaceDir), "/", &llb.CopyInfo{
-					AttemptUnpack: true,
+				shelter, "/result", "/", &llb.CopyInfo{
+					AttemptUnpack:       true,
+					CopyDirContentsOnly: true,
 				},
 			),
 			extractFileOpts...,
 		)
 
-		// Prepare the builder state to extract the manifest.json file
-		extractDef, err := extract.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
-		if err != nil {
-			return nil, err
-		}
-		extractRes, err := c.Solve(ctx, client.SolveRequest{
-			Definition:   extractDef.ToPB(),
-			CacheImports: bc.CacheImports,
-		})
-		if err != nil {
-			return nil, err
-		}
-		extractRef, err := extractRes.SingleRef()
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the manifest.json file to get the list of layers and the config file
-		manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
-		if err != nil {
-			return nil, fmt.Errorf("nix build did not produce a manifest.json file, please check the build logs for errors: %w", err)
-		}
-		manifest, err := dockershim.UnmarshalManifest(manifestByte)
-		if err != nil {
-			return nil, err
-		}
-
-		// Create a new scratch state and overlay the layers from the manifest.json file to it
-		layered := llb.Scratch()
-		for _, layer := range manifest.Layers {
-			layeredFileOpts := []llb.ConstraintsOpt{
-				withInternalName(fmt.Sprintf("importing layer: %s", layer)),
-			}
-			if bc.IsNoCache("layered") {
-				layeredFileOpts = append(layeredFileOpts, llb.IgnoreCache)
-			}
-			layered = layered.File(
-				llb.Copy(extract, layer, "/", &llb.CopyInfo{
-					AttemptUnpack: true,
-				}),
-				layeredFileOpts...,
-			)
-		}
-
-		// Prepare the final definition from final state
-		layeredDef, err := layered.Marshal(ctx)
-		if err != nil {
-			return nil, err
-		}
-		layeredRes, err := c.Solve(ctx, client.SolveRequest{
-			Definition:   layeredDef.ToPB(),
-			CacheImports: bc.CacheImports,
-		})
-		if err != nil {
-			return nil, err
-		}
-		layeredRef, err := layeredRes.SingleRef()
-		if err != nil {
-			return nil, err
-		}
-
-		// Read the config file from the result of the nix build and add it to the result metadata
-		configByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
-		if err != nil {
-			return nil, err
-		}
-		// Parse the oci config file to get the image configuration
+		var st llb.State
+		var ref client.Reference
 		var config dockerocispecs.DockerOCIImage
-		if err := json.Unmarshal(configByte, &config); err != nil {
+
+		if resultType == "derivation" {
+			config = dockerocispecs.DockerOCIImage{
+				Image: ocispecs.Image{Platform: p},
+			}
+			st = extract
+		} else if resultType == "ocispec" {
+			// Prepare the builder state to extract the manifest.json file
+			extractDef, err := extract.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+			if err != nil {
+				return nil, err
+			}
+			extractRes, err := c.Solve(ctx, client.SolveRequest{
+				Definition:   extractDef.ToPB(),
+				CacheImports: bc.CacheImports,
+			})
+			if err != nil {
+				return nil, err
+			}
+			extractRef, err := extractRes.SingleRef()
+			if err != nil {
+				return nil, err
+			}
+
+			// Parse the manifest.json file to get the list of layers and the config file
+			manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
+			if err != nil {
+				return nil, fmt.Errorf("nix build did not produce a manifest.json file, please check the build logs for errors: %w", err)
+			}
+			manifest, err := dockershim.UnmarshalManifest(manifestByte)
+			if err != nil {
+				return nil, err
+			}
+
+			// Create a new scratch state and overlay the layers from the manifest.json file to it
+			layered := llb.Scratch()
+			for _, layer := range manifest.Layers {
+				layeredFileOpts := []llb.ConstraintsOpt{
+					withInternalName(fmt.Sprintf("importing layer: %s", layer)),
+				}
+				if bc.IsNoCache("layered") {
+					layeredFileOpts = append(layeredFileOpts, llb.IgnoreCache)
+				}
+				layered = layered.File(
+					llb.Copy(extract, layer, "/", &llb.CopyInfo{
+						AttemptUnpack: true,
+					}),
+					layeredFileOpts...,
+				)
+			}
+
+			// Assin the layered state to the final state to be returned
+			st = layered
+
+			// Read the config file from the result of the nix build and add it to the result metadata
+			configByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
+			if err != nil {
+				return nil, err
+			}
+
+			// Parse the oci config file to get the image configuration
+			if err := json.Unmarshal(configByte, &config); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("unsupported result type: %s", resultType)
+		}
+
+		def, err := st.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+		if err != nil {
+			return nil, err
+		}
+		res, err := c.Solve(ctx, client.SolveRequest{
+			Definition:   def.ToPB(),
+			CacheImports: bc.CacheImports,
+		})
+		if err != nil {
+			return nil, err
+		}
+		ref, err = res.SingleRef()
+		if err != nil {
 			return nil, err
 		}
 
 		// Return the final result with the layered reference and the image configuration
 		return &dockerui.BuildResult{
-			Reference: layeredRef,
+			Reference: ref,
 			Image:     &config,
 			BaseImage: &config,
 		}, nil
