@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
@@ -81,16 +83,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 	}
 
-	// Nix Store cache key
-	nixStoreCacheKey := bc.CacheIDNamespace + "-nix-store-cache"
-
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
+		var p ocispecs.Platform
+		if platform != nil {
+			p = *platform
+		} else {
+			p = platforms.DefaultSpec()
+		}
+		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/nix/store", bc.CacheIDNamespace, p.OS, p.Architecture))
+
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
-			nixStoreCacheKey = fmt.Sprintf("%s-nix-store-cache-%s-%s", bc.CacheIDNamespace, platform.OS, platform.Architecture)
-			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", platform.OS, platform.Architecture))
+			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
 		}
 
 		// Nix store is used to persist the nix store between builds, so that we don't have to rebuild everything from scratch every time
@@ -99,10 +105,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Load the nix image and set it as the base image for the build
 		builderImageOpts := []llb.ImageOption{
 			llb.WithMetaResolver(c),
+			llb.Platform(p),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
-		}
-		if bc.MultiPlatformRequested {
-			builderImageOpts = append(builderImageOpts, llb.Platform(*platform))
 		}
 		if bc.IsNoCache("builder") {
 			builderImageOpts = append(builderImageOpts, llb.IgnoreCache)
