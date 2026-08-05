@@ -104,8 +104,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Load the nix image and set it as the base image for the build
 		builderImageOpts := []llb.ImageOption{
-			llb.WithMetaResolver(c),
 			llb.Platform(p),
+			llb.WithExportCache(),
+			llb.WithMetaResolver(c),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
 		}
 		if bc.IsNoCache("builder") {
@@ -115,12 +116,14 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Builder working directory is set to /mnt/workspace,
 		// so that the nix build result can be copied to /mnt/workspace/result and extracted later
-		builder = builder.With(llb.Dir(mountWorkspaceDir))
+		builder = builder.With(
+			// llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.Dir(mountWorkspaceDir),
+		)
 
 		// setup build environment
 		builder = builder.Run(
-			// <-- alaway execute this stage
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			nixllb.Shlex(`
 				nix --version
 				{
@@ -138,8 +141,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// restore nix store cache
 		nixStoreRestoreOpts := []llb.RunOption{
-			// <-- alaway execute this stage
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			nixllb.Shlexf(`
 				export NIX_STORE_CACHE_DIR="%s"
@@ -166,9 +168,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
-			// <-- alaway execute this stage
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
+			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
 			nixllb.Shlexf(`
 				set -euo pipefail
@@ -228,8 +229,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
-			// <-- alaway execute this stage
-			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
+			llb.AddMount(mountSourceDir, *mainContext, llb.Readonly),
 			llb.AddMount(mountNixStoreCacheDir, nixStore, llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			nixllb.Shlexf(`
 				export NIX_STORE_CACHE_DIR="%s"
