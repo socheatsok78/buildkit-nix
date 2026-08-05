@@ -36,9 +36,11 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 > [!NOTE]
 > The image will be layered depending on the result output of the `nix build` command.
 >
-> Example:
-> - Using `pkgs.dockerTools.buildImage` will produce a single image with a single layer for all files (and dependencies).
-> - Using `pkgs.dockerTools.buildLayeredImage` will produce a single image, using multiple layers to improve sharing between images
+> If the package is a standard `derivation`, the image will produce a single layer with all the files in the result output and the Nix store dependencies.
+>
+> If the package is a `dockerTools.buildImage` or `dockerTools.buildLayeredImage`, the image will produce multiple layers depending on the result output and the Nix store dependencies.
+>
+> See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html and https://nixos.org/manual/nixpkgs/stable/#sec-pkgs-dockerTools.
 
 ## Customization
 
