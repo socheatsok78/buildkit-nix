@@ -114,7 +114,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		builder = builder.With(llb.Dir(mountWorkspaceDir))
 
 		// setup build environment
-		builderSt := builder.Run(
+		builder = builder.Run(
 			// <-- alaway execute this stage
 			llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
 			nixllb.Shlex(`
@@ -130,7 +130,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				cat /etc/nix/nix.conf
 			`),
 			withInternalName("setup build environment"),
-		)
+		).Root()
 
 		// restore nix store cache
 		nixStoreRestoreOpts := []llb.RunOption{
@@ -158,7 +158,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("nix-store") {
 			nixStoreRestoreOpts = append(nixStoreRestoreOpts, llb.IgnoreCache)
 		}
-		builderSt = builderSt.Run(nixStoreRestoreOpts...)
+		builder = builder.Run(nixStoreRestoreOpts...).Root()
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
@@ -220,7 +220,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("nix-build") {
 			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
 		}
-		builderSt = builderSt.Run(nixBuildOpts...)
+		builder = builder.Run(nixBuildOpts...).Root()
 
 		// save nix store cache
 		nixStoreSaveOpts := []llb.RunOption{
@@ -243,7 +243,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("nix-store") {
 			nixStoreSaveOpts = append(nixStoreSaveOpts, llb.IgnoreCache)
 		}
-		builderSt = builderSt.Run(nixStoreSaveOpts...)
+		builder = builder.Run(nixStoreSaveOpts...).Root()
 
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
@@ -253,9 +253,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if bc.IsNoCache("extract") {
 			extractFileOpts = append(extractFileOpts, llb.IgnoreCache)
 		}
-		extractSt := extract.File(
+		extract = extract.File(
 			llb.Copy(
-				builderSt.GetMount("/"),
+				builder,
 				fmt.Sprintf("%s/result", mountWorkspaceDir), "/", &llb.CopyInfo{
 					AttemptUnpack: true,
 				},
@@ -264,7 +264,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		)
 
 		// Prepare the builder state to extract the manifest.json file
-		extractDef, err := extractSt.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+		extractDef, err := extract.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +300,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				layeredFileOpts = append(layeredFileOpts, llb.IgnoreCache)
 			}
 			layered = layered.File(
-				llb.Copy(extractSt, layer, "/", &llb.CopyInfo{
+				llb.Copy(extract, layer, "/", &llb.CopyInfo{
 					AttemptUnpack: true,
 				}),
 				layeredFileOpts...,
