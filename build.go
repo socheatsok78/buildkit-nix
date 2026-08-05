@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/containerd/platforms"
+	"github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
@@ -98,7 +100,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		} else {
 			p = platforms.DefaultSpec()
 		}
-		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s/%s/nix/store", bc.CacheIDNamespace, p.OS, p.Architecture, source, bc.Target))
+
+		nixImageDigest, err := resolveNixImageDigest(ctx, c, NixImage, &p)
+		if err != nil {
+			return nil, err
+		}
+		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s/nix/store", bc.CacheIDNamespace, nixImageDigest, source, bc.Target))
 
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
@@ -122,10 +129,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Builder working directory is set to /mnt/workspace,
 		// so that the nix build result can be copied to /mnt/workspace/result and extracted later
-		builder = builder.With(
-			// llb.AddEnv(keyNixSessionID, c.BuildOpts().SessionID),
-			llb.Dir(mountWorkspaceDir),
-		)
+		builder = builder.With(llb.Dir(mountWorkspaceDir))
 
 		// setup build environment
 		builder = builder.Run(
@@ -141,7 +145,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					# echo "sandbox = false" -- already set by default from nixos/nix image
 				} >> /etc/nix/nix.conf
 				cat /etc/nix/nix.conf
-			`),
+
+				# This is a fake config for debugging purposes,
+				# it will be printed in the build logs, but it will not be used by nix
+				echo "nix-store-cache-key = %s"
+			`, nixStoreCacheKey),
 			withInternalName("setup build environment"),
 		).Root()
 
@@ -357,4 +365,24 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	return rb.Finalize()
+}
+
+func resolveNixImageDigest(ctx context.Context, c client.Client, nixImage string, platform *ocispecs.Platform) (string, error) {
+	opt := &sourceresolver.ResolveImageOpt{
+		Platform: platform,
+	}
+	if _, nixImageDigest, _, err := c.ResolveImageConfig(ctx, nixImage, sourceresolver.Opt{ImageOpt: opt}); err != nil {
+		return "", err
+	} else if nixImageDigest != "" {
+		nixImageRef, err := reference.ParseNormalizedNamed(nixImage)
+		if err != nil {
+			return "", err
+		}
+		nixImageRefWithDigest, err := reference.WithDigest(nixImageRef, nixImageDigest)
+		if err != nil {
+			return "", err
+		}
+		return nixImageRefWithDigest.String(), nil
+	}
+	return nixImage, nil
 }
