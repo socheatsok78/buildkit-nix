@@ -154,6 +154,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			nixllb.Shlexf(`
 				set -euo pipefail
 
+				nix-config-get() {
+					nix --extra-experimental-features nix-command config show | grep "$1" | cut -d"=" -f2 | xargs
+				}
+
 				BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
 				BUILDKIT_NIX_BUILD_TARGET=${BUILDKIT_NIX_BUILD_TARGET:-default}
 				BUILDKIT_NIX_OPTION_SUBSTITUTERS=${BUILDKIT_NIX_OPTION_SUBSTITUTERS:-}
@@ -169,9 +173,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					echo "extra-experimental-features = flakes"
 					echo "extra-experimental-features = nix-command"
 					echo "filter-syscalls = false"
-					echo "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:+substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS}}"
-					echo "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:+trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS}}"
-					echo "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:+trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}}"
+					echo -ne "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:+substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS} $(nix-config-get substituters)\n}"
+					echo -ne "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:+trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS} $(nix-config-get trusted-public-keys)\n}"
+					echo -ne "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:+trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}\n}"
 					# echo "sandbox = false" -- already set by default from nixos/nix image
 				} | tee -a /etc/nix/nix.conf
 
