@@ -10,12 +10,12 @@ An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 
 ## Image
 
+[![Docker](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml/badge.svg)](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml)
+
 | Registry                    | Image                                 |
 | --------------------------- | ------------------------------------- |
 | [Docker Hub]                | socheatsok78/nixfile-frontend         |
 | [GitHub Container Registry] | ghcr.io/socheatsok78/nixfile-frontend |
-
-[![Docker](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml/badge.svg)](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml)
 
 ## Usage
 
