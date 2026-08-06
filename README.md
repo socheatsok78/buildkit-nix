@@ -109,7 +109,10 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 
 ## Caveats
 
-- Nix derivations using `pkgs.dockerTools.buildImage` & `pkgs.dockerTools.buildLayeredImage`, there is no plan to support building Nix derivation directly yet. Maybe in the future.
+> [!CAUTION]
+> Not all packages can be built with this frontend, some may fail due to various reasons.
+
+- Building `.nix` file is currently not supported, only `flake.nix` is supported.
 
 - Named contexts for frontend `(unsupported frontend capability moby.buildkit.frontend.contexts)`, there is no way to reference a named context in the `flake.nix` file, so the implementation is to remove pesky warning and errors about named contexts.
 
