@@ -1,5 +1,5 @@
 ## About
-An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
+An experimental [BuildKit] frontend for building Nix Flakes as Dockerfile.
 
 [Source] | [Docker Hub] | [GitHub Container Registry]
 
@@ -118,5 +118,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE] file f
 
 [Source]: https://github.com/socheatsok78/buildkit-nix
 [LICENSE]: https://github.com/socheatsok78/buildkit-nix/blob/main/LICENSE
+[BuildKit]: https://github.com/moby/buildkit
 [Docker Hub]: https://hub.docker.com/r/socheatsok78/nixfile-frontend
 [GitHub Container Registry]: https://github.com/socheatsok78/nixfile-frontend/pkgs/container/nixfile-frontend
