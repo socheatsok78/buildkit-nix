@@ -28,9 +28,13 @@ const (
 )
 
 const (
-	DefaultNixImage = "docker.io/nixos/nix:latest"
-	keyNixImage     = "BUILDKIT_NIX_IMAGE"
 	keyNixSessionID = "BUILDKIT_NIX_SESSIONID"
+
+	DefaultNixImage                 = "docker.io/nixos/nix:latest"
+	keyNixImage                     = "BUILDKIT_NIX_IMAGE"
+	keyNixOptionSubstituters        = "BUILDKIT_NIX_OPTION_SUBSTITUTERS"
+	keyNixOptionTrustedPublicKeys   = "BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS"
+	keyNixOptionTrustedSubstituters = "BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS"
 )
 
 const (
@@ -72,11 +76,22 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		return nil, err
 	}
 
-	// TODO: Implement support for build-args:
-	//       - substituters
-	//       - trusted-substituters
+	// Load the nix option substituters and trusted substituters from the build options, if provided
+	NixOptionSubstituters := ""
+	if v, ok := opts[keyNixOptionSubstituters]; ok {
+		NixOptionSubstituters = v
+	}
+	NixOptionTrustedSubstituters := ""
+	if v, ok := opts[keyNixOptionTrustedSubstituters]; ok {
+		NixOptionTrustedSubstituters = v
+	}
+	NixOptionTrustedPublicKeys := ""
+	if v, ok := opts[keyNixOptionTrustedPublicKeys]; ok {
+		NixOptionTrustedPublicKeys = v
+	}
 
-	// Default secrets for nix build, which are optional and can be provided by the user
+	// Load secrets for the nix build, including access tokens, impure environment variables, and netrc files
+	// The secrets are on-demand and will be provided by the buildkit session, if available
 	nixBuildSecrets := []llb.RunOption{
 		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID("access-tokens"), llb.SecretOptional),
 		llb.AddSecret("/run/secrets/impure-env", llb.SecretID("impure-env"), llb.SecretOptional),
@@ -127,6 +142,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixBuildOpts := []llb.RunOption{
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
+			llb.AddEnv("BUILDKIT_NIX_OPTION_SUBSTITUTERS", NixOptionSubstituters),
+			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS", NixOptionTrustedPublicKeys),
+			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS", NixOptionTrustedSubstituters),
 			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
 			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
@@ -138,17 +156,22 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 				BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
 				BUILDKIT_NIX_BUILD_TARGET=${BUILDKIT_NIX_BUILD_TARGET:-default}
+				BUILDKIT_NIX_OPTION_SUBSTITUTERS=${BUILDKIT_NIX_OPTION_SUBSTITUTERS:-}
+				BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS=${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:-}
+				BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS=${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:-}
 				BUILDKIT_NIX_STORE_CACHE_KEY=${BUILDKIT_NIX_STORE_CACHE_KEY:-}
 
 				echo "Setup build environment"
 				nix --version
 				{
-					echo "auto-optimise-store = true"
 					echo "binary-caches-parallel-connections = 15"
+					echo "extra-experimental-features = configurable-impure-env"
 					echo "extra-experimental-features = flakes"
 					echo "extra-experimental-features = nix-command"
-					echo "extra-experimental-features = configurable-impure-env"
 					echo "filter-syscalls = false"
+					echo "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:+substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS}}"
+					echo "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:+trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS}}"
+					echo "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:+trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}}"
 					# echo "sandbox = false" -- already set by default from nixos/nix image
 				} | tee -a /etc/nix/nix.conf
 
@@ -158,7 +181,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				echo ""
 
 				nixopts=()
-				echo "Prepare build environment..."
 
 				# If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
 				if [ -n "${GITHUB_TOKEN:-}" ]; then
