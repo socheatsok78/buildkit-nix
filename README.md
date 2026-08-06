@@ -68,7 +68,7 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 
 ## Customization
 
-The frontend can be customized using the following build arguments:
+The frontend can be customized using the following build arguments, which can be passed to the `docker buildx build` command using the `--build-arg` option:
 
 - `image`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
 
