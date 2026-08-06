@@ -1,10 +1,12 @@
-> [!IMPORTANT]
-> This project is still in early development and may not be stable. Use at your own risk
-
 ## About
 An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 
-[Source]
+[Source] | [Docker Hub] | [GitHub Container Registry]
+
+> [!IMPORTANT]
+> This project is still in early development.
+>
+> The frontend is designed to be used with BuildKit and Docker Buildx, which allows for building Nix Flakes as Docker images. It supports multi-platform builds, build cache for Nix store and Docker layers, and customization through build arguments and secrets.
 
 ## Image
 
@@ -47,6 +49,16 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 The frontend can be customized using the following build arguments:
 
 - `BUILDKIT_NIX_IMAGE`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
+
+- `BUILDKIT_NIX_OPTION_SUBSTITUTERS`: A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them. (default: empty). 
+  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-substituters
+
+- `BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS`: A whitespace-separated list of public keys. (default: empty). 
+  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-public-keys
+  
+- `BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS`: A list of Nix store URLs, separated by whitespace. (default: empty)  
+  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-substituters
+
 
 **Build Secrets**:
 
