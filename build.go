@@ -170,15 +170,26 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				nix --version
 				{
 					echo "binary-caches-parallel-connections = 15"
+					echo "build-users-group = $(nix-config-get build-users-group)"
 					echo "extra-experimental-features = configurable-impure-env"
-					echo "extra-experimental-features = flakes"
-					echo "extra-experimental-features = nix-command"
+					echo "extra-experimental-features = nix-command flakes"
 					echo "filter-syscalls = false"
-					echo -ne "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:+substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS} $(nix-config-get substituters)\n}"
-					echo -ne "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:+trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS} $(nix-config-get trusted-public-keys)\n}"
-					echo -ne "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:+trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}\n}"
-					# echo "sandbox = false" -- already set by default from nixos/nix image
-				} | tee -a /etc/nix/nix.conf
+					echo "sandbox = relaxed"
+					if [ -n "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:-}" ]; then
+						echo "substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS} $(nix-config-get substituters)"
+					else
+						echo "substituters = $(nix-config-get substituters)"
+					fi
+					if [ -n "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:-}" ]; then
+						echo "trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS} $(nix-config-get trusted-public-keys)"
+					else
+						echo "trusted-public-keys = $(nix-config-get trusted-public-keys)"
+					fi
+					if [ -n "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:-}" ]; then
+						echo "trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}"
+					fi
+					echo "trusted-users = $(whoami)"
+				} | tee /etc/nix/nix.conf
 
 				# This is a fake config for debugging purposes,
 				# it will be printed in the build logs, but it will not be used by nix
