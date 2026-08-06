@@ -70,15 +70,15 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 
 The frontend can be customized using the following build arguments:
 
-- `BUILDKIT_NIX_IMAGE`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
+- `image`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
 
-- `BUILDKIT_NIX_OPTION_SUBSTITUTERS`: A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them. (default: empty). 
+- `substituters`: A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them. (default: empty). 
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-substituters
 
-- `BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS`: A whitespace-separated list of public keys. (default: empty). 
+- `trusted-public-keys`: A whitespace-separated list of public keys. (default: empty). 
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-public-keys
   
-- `BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS`: A list of Nix store URLs, separated by whitespace. (default: empty)  
+- `trusted-substituters`: A list of Nix store URLs, separated by whitespace. (default: empty)
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-substituters
 
 

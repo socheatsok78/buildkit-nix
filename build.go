@@ -28,13 +28,21 @@ const (
 )
 
 const (
+	DefaultNixImage = "docker.io/nixos/nix:latest"
+
+	// session
 	keyNixSessionID = "BUILDKIT_NIX_SESSIONID"
 
-	DefaultNixImage                 = "docker.io/nixos/nix:latest"
-	keyNixImage                     = "BUILDKIT_NIX_IMAGE"
-	keyNixOptionSubstituters        = "BUILDKIT_NIX_OPTION_SUBSTITUTERS"
-	keyNixOptionTrustedPublicKeys   = "BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS"
-	keyNixOptionTrustedSubstituters = "BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS"
+	// build-args
+	keyNixImage                     = "image"
+	keyNixOptionSubstituters        = "substituters"
+	keyNixOptionTrustedPublicKeys   = "trusted-public-keys"
+	keyNixOptionTrustedSubstituters = "trusted-substituters"
+
+	// secrets
+	secretNixOptionsAccessTokens = "access-tokens"
+	secretNixOptionsImpureEnv    = "impure-env"
+	secretNixOptionsNetrcFile    = "netrc-file"
 )
 
 const (
@@ -93,9 +101,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	// Load secrets for the nix build, including access tokens, impure environment variables, and netrc files
 	// The secrets are on-demand and will be provided by the buildkit session, if available
 	nixBuildSecrets := []llb.RunOption{
-		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID("access-tokens"), llb.SecretOptional),
-		llb.AddSecret("/run/secrets/impure-env", llb.SecretID("impure-env"), llb.SecretOptional),
-		llb.AddSecret("/run/secrets/netrc-file", llb.SecretID("netrc-file"), llb.SecretOptional),
+		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID(secretNixOptionsAccessTokens), llb.SecretOptional),
+		llb.AddSecret("/run/secrets/impure-env", llb.SecretID(secretNixOptionsImpureEnv), llb.SecretOptional),
+		llb.AddSecret("/run/secrets/netrc-file", llb.SecretID(secretNixOptionsNetrcFile), llb.SecretOptional),
 
 		// Special secret for GitHub token, which is used to access private repositories
 		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
