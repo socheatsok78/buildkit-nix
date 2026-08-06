@@ -15,6 +15,8 @@ An experimental BuildKit frontend for building Nix Flakes as Dockerfile.
 | [Docker Hub]                | socheatsok78/nixfile-frontend         |
 | [GitHub Container Registry] | ghcr.io/socheatsok78/nixfile-frontend |
 
+[![Docker](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml/badge.svg)](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml)
+
 ## Usage
 
 In the `flake.nix` add the following snippet to the top of the file:
@@ -22,12 +24,32 @@ In the `flake.nix` add the following snippet to the top of the file:
 ```nix
 # syntax=socheatsok78/nixfile-frontend:experimental
 ```
-> [!NOTE]
-> The package must be built using either `pkgs.dockerTools.buildImage` or `pkgs.dockerTools.buildLayeredImage` to produce a Docker image.
+
+Example:
+
+```nix
+# syntax=socheatsok78/nixfile-frontend:experimental
+{
+  description = "A very basic flake";
+
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+  };
+
+  outputs = inputs: {
+    packages = builtins.mapAttrs (system: pkgs: {
+      hello = pkgs.hello;
+
+      default = inputs.self.packages.${system}.hello;
+    }) inputs.nixpkgs.legacyPackages;
+  };
+}
+```
 
 Then run the following command to build the flake:
 
 ```bash
+# Build the default package in the flake
 docker buildx build -t flake -f flake.nix .
 
 # or if you want to build a specific `nix build .#<installable>`,
