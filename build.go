@@ -129,6 +129,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		builderImageOpts := []llb.ImageOption{
 			llb.Platform(p),
 			llb.ResolveDigest(true),
+			llb.ResolveModePreferLocal, // Prefer local cache for the nix image, to avoid pulling it from the registry if it's already available
 			llb.WithExportCache(),
 			llb.WithMetaResolver(c),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
