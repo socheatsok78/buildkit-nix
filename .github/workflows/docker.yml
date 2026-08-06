@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docker:
+  bootstrap:
     uses: socheatsok78/uses/.github/workflows/docker-buildx-bake.yml@main
     permissions:
       contents: read
@@ -36,3 +36,14 @@ jobs:
       permit-cache: ${{ github.event_name != 'pull_request' }}
       custom-cache-mode: max
     secrets: inherit
+
+  test:
+    needs: bootstrap
+    uses: socheatsok78/uses/.github/workflows/docker-buildx-bake.yml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      targets: ${{ github.event.inputs.target || 'flakes' }}
+      permit-login: false
+      permit-push: false
