@@ -31,7 +31,8 @@ const (
 	DefaultNixImage = "docker.io/nixos/nix:latest"
 
 	// session
-	keyNixSessionID = "BUILDKIT_NIX_SESSIONID"
+	keyNixSessionID    = "BUILDKIT_NIX_SESSIONID"
+	keyLLBSecurityMode = "security"
 
 	// build-args
 	keyNixImage                     = "image"
@@ -82,6 +83,19 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
 	if err != nil {
 		return nil, err
+	}
+
+	// Load the security mode from the build options, if provided. default (sandbox)
+	security := llb.SecurityModeSandbox
+	if v, ok := opts[keyLLBSecurityMode]; ok {
+		switch v {
+		case "insecure":
+			security = llb.SecurityModeInsecure
+		case "sandbox":
+			security = llb.SecurityModeSandbox
+		default:
+			return nil, fmt.Errorf("invalid security mode: %s", v)
+		}
 	}
 
 	// Load the nix option substituters and trusted substituters from the build options, if provided
@@ -149,6 +163,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
+			llb.Security(security),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
 			llb.AddEnv("BUILDKIT_NIX_OPTION_SUBSTITUTERS", NixOptionSubstituters),
