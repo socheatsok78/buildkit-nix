@@ -8,6 +8,14 @@ An experimental [BuildKit] frontend for building Nix Flakes as Dockerfile.
 >
 > The frontend is designed to be used with BuildKit and Docker Buildx, which allows for building Nix Flakes as Docker images. It supports multi-platform builds, build cache for Nix store and Docker layers, and customization through build arguments and secrets.
 
+## Why?
+
+The main goal of this project is to simplify the process of building Docker images from Nix Flakes, leveraging the power of BuildKit and Docker Buildx.
+
+There are several other implementations that leverage BuildKit but most often they are either not maintained or re-implementing the wheel which further complicates the adoption.
+
+This frontend is designed to be simple, easy to use, and maintainable. Instead of re-implementing the wheel, it leverages the existing Nix tools and commands to build the Flakes and produce Docker images.
+
 ## Image
 
 [![Docker](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml/badge.svg)](https://github.com/socheatsok78/buildkit-nix/actions/workflows/docker.yml)
