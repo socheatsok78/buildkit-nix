@@ -7,7 +7,9 @@
 dockerTools.buildLayeredImage {
   name = "nixfile-frontend";
   tag = "experimental";
-  contents = [ nixfile-frontend ];
+  contents = [
+    nixfile-frontend
+  ];
   config = {
     Entrypoint = [ "${nixfile-frontend}/bin/nixfile-frontend" ];
     Labels = {
