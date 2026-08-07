@@ -11,7 +11,7 @@ dockerTools.buildLayeredImage {
     nixfile-frontend
   ];
   config = {
-    Entrypoint = [ "${nixfile-frontend}/bin/nixfile-frontend" ];
+    Entrypoint = [ "${lib.getExe nixfile-frontend}" ];
     Labels = {
       "moby.buildkit.frontend.network.none" = "true";
 
