@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "maintainers": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786089257,
+        "narHash": "sha256-HPUEV2D7fSVDvJub6o4KymxTwSk3LRlIvsdRSxalNEQ=",
+        "owner": "socheatsok78",
+        "repo": "maintainers.nix",
+        "rev": "7c4c5d54725f3368df081786cd5acdcee04cc35b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "socheatsok78",
+        "repo": "maintainers.nix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1785301185,
@@ -18,6 +34,7 @@
     },
     "root": {
       "inputs": {
+        "maintainers": "maintainers",
         "nixpkgs": "nixpkgs"
       }
     }

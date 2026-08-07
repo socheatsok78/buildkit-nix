@@ -2,11 +2,16 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    maintainers = {
+      url = "github:socheatsok78/maintainers.nix";
+      flake = false;
+    };
   };
   outputs =
     {
       self,
       nixpkgs,
+      maintainers,
     }:
     let
       forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
@@ -15,16 +20,12 @@
       legacyPackages = forAllSystems (
         system:
         import ./default.nix {
+          inherit maintainers;
           pkgs = import nixpkgs { inherit system; };
         }
       );
 
-      packages = forAllSystems (
-        system:
-        import ./default.nix {
-          pkgs = import nixpkgs { inherit system; };
-        }
-      );
+      packages = self.legacyPackages;
 
       devShells = forAllSystems (
         system:
