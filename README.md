@@ -105,6 +105,7 @@ You can provide secrets to the frontend using the `--secret` option of `docker b
 > [!NOTE]
 > The build secrets are on-demand and optional, so you can choose to provide them or not. During the `nix build` phase, the frontend will check if the secrets are provided and pass them to the `nix build` command as `--option` arguments. If the secrets are not provided, the frontend will skip them and continue with the build.
 
+
 ## Example
 
 See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-nix-demo) for a working example of how to use this frontend.
@@ -119,6 +120,26 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 
 > [!CAUTION]
 > Not all packages can be built with this frontend, some may fail due to various reasons.
+
+> [!CAUTION]
+> **Privileged Build**
+> 
+> The privileged build is required for some packages that require access to the host system, such as `dockerTools.buildImage` or `dockerTools.buildLayeredImage`. If you are building a package that requires privileged access.
+>
+> To enable privileged build, you'll need to add the following build argument to the `docker buildx build` command:
+> ```bash
+> --build-arg "security.insecure=true" --allow "security.insecure"
+> ```
+> or, if you are using `docker buildx bake`, add the following to the `docker-bake.hcl` file:
+> ```hcl
+> targets "<target_name>" {
+>   args = {
+>     "security.insecure" = "true";
+>   }
+>   entitlements = [
+>     "security.insecure"
+>   ]
+> }
 
 - Building `.nix` file is currently not supported, only `flake.nix` is supported.
 
