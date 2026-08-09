@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -31,8 +32,8 @@ const (
 	DefaultNixImage = "docker.io/nixos/nix:latest"
 
 	// session
-	keyNixSessionID    = "BUILDKIT_NIX_SESSIONID"
-	keyLLBSecurityMode = "security"
+	keyNixSessionID        = "BUILDKIT_NIX_SESSIONID"
+	keyNixSecurityInsecure = "security.insecure"
 
 	// build-args
 	keyNixImage                     = "image"
@@ -87,14 +88,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 	// Load the security mode from the build options, if provided. default (sandbox)
 	security := llb.SecurityModeSandbox
-	if v, ok := opts[keyLLBSecurityMode]; ok {
-		switch v {
-		case "insecure":
+	if v, ok := opts[keyNixSecurityInsecure]; ok {
+		if enable, _ := strconv.ParseBool(v); enable {
 			security = llb.SecurityModeInsecure
-		case "sandbox":
+		} else {
 			security = llb.SecurityModeSandbox
-		default:
-			return nil, fmt.Errorf("invalid security mode: %s", v)
 		}
 	}
 
