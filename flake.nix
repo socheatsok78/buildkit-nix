@@ -19,7 +19,7 @@
     {
       legacyPackages = forAllSystems (
         system:
-        import ./default.nix {
+        import ./packages.nix {
           inherit maintainers;
           pkgs = nixpkgs.legacyPackages.${system};
         }
