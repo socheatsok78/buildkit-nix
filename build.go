@@ -135,7 +135,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s/nix", bc.CacheIDNamespace, nixImageDigest, p.OS, p.Architecture))
+		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s", bc.CacheIDNamespace, nixImageDigest, p.OS, p.Architecture))
 
 		withInternalName := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
