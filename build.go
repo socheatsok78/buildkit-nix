@@ -146,7 +146,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		)
 
 		// Install the buildkit-nix toolbox into the builder image
-		builder, err = toolbox.Install(builder, bc.IsNoCache(""))
+		builder, err = toolbox.Install(builder, bc.IsNoCache("builder"))
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +160,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
 				nixllb.ProgressGroup(pgId, pgName, false),
 				withInternalName("configure default nix.conf"),
-				nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			)
 			if nixExtraConfigStr != "" {
 				configure = configure.
@@ -168,20 +168,20 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 						llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
 						nixllb.ProgressGroup(pgId, pgName, false),
 						withInternalName("load nix config from build args"),
-						nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+						nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 					).
 					Run(
 						nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
 						nixllb.ProgressGroup(pgId, pgName, false),
 						withInternalName("inject nix config from build args into /etc/nix/nix.conf"),
-						nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+						nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 					)
 			}
 			configure = configure.
 				Run(
 					llb.Shlex("nix config check"),
 					withInternalName("nix config check"),
-					nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 				)
 
 			builder = configure.Root()
@@ -210,7 +210,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			// Special secret for GitHub token, which is used to access private repositories
 			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
-			nixllb.ShouldIgnoreCache(bc.IsNoCache("nix-build")),
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
 		)
 
