@@ -17,6 +17,7 @@ import (
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
+	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 	"github.com/socheatsok78/buildkit-nix/toolbox"
 )
@@ -110,16 +111,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		NixOptionTrustedPublicKeys = v
 	}
 
-	// Load secrets for the nix build, including access tokens, impure environment variables, and netrc files
-	// The secrets are on-demand and will be provided by the buildkit session, if available
-	nixBuildSecrets := []llb.RunOption{
-		llb.AddSecret("/run/secrets/access-tokens", llb.SecretID(secretNixOptionsAccessTokens), llb.SecretOptional),
-		llb.AddSecret("/run/secrets/impure-env", llb.SecretID(secretNixOptionsImpureEnv), llb.SecretOptional),
-		llb.AddSecret("/run/secrets/netrc-file", llb.SecretID(secretNixOptionsNetrcFile), llb.SecretOptional),
-
-		// Special secret for GitHub token, which is used to access private repositories
-		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
-	}
 
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
@@ -146,18 +137,17 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		shelter := llb.Scratch()
 
 		// Load the nix image and set it as the base image for the build
-		builderImageOpts := []llb.ImageOption{
+		// Prefer local cache for the nix image, to avoid pulling it from the registry if it's already available
+		builder := llb.Image(
+			NixImage,
+			llb.ResolveModePreferLocal,
 			llb.Platform(p),
 			llb.ResolveDigest(true),
-			llb.ResolveModePreferLocal, // Prefer local cache for the nix image, to avoid pulling it from the registry if it's already available
 			llb.WithExportCache(),
 			llb.WithMetaResolver(c),
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
-		}
-		if bc.IsNoCache("builder") {
-			builderImageOpts = append(builderImageOpts, llb.IgnoreCache)
-		}
-		builder := llb.Image(NixImage, builderImageOpts...)
+		)
 
 		// Install the buildkit-nix toolbox into the builder image
 		builder, err = toolbox.Install(builder, bc.IsNoCache("toolbox"))
@@ -176,25 +166,31 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		).Root()
 
 		// Nix build
-		nixBuildOpts := []llb.RunOption{
+		builderSt := builder.Run(
 			llb.Security(security),
+
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
+
 			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.AddMount(mountShelterDir, shelter),
 			llb.AddMount(mountSourceDir, *mainContext),
+
 			llb.Dir(mountSourceDir),
 			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
+
+			// Secrets
+			llb.AddSecret("/run/secrets/access-tokens", llb.SecretID(secretNixOptionsAccessTokens), llb.SecretOptional),
+			llb.AddSecret("/run/secrets/impure-env", llb.SecretID(secretNixOptionsImpureEnv), llb.SecretOptional),
+			llb.AddSecret("/run/secrets/netrc-file", llb.SecretID(secretNixOptionsNetrcFile), llb.SecretOptional),
+
+			// Special secret for GitHub token, which is used to access private repositories
+			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
+
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("nix-build")),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
-		}
-		for _, secret := range nixBuildSecrets {
-			nixBuildOpts = append(nixBuildOpts, secret)
-		}
-		if bc.IsNoCache("nix-build") {
-			nixBuildOpts = append(nixBuildOpts, llb.IgnoreCache)
-		}
-		builderSt := builder.Run(nixBuildOpts...)
+		)
 
 		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
 		shelter = builderSt.GetMount(mountShelterDir)
@@ -225,12 +221,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		// Extract the result of the nix build to a new scratch state
 		extract := llb.Scratch()
-		extractFileOpts := []llb.ConstraintsOpt{
-			withInternalName("extracting result layers"),
-		}
-		if bc.IsNoCache("extract") {
-			extractFileOpts = append(extractFileOpts, llb.IgnoreCache)
-		}
 		extract = extract.File(
 			llb.Copy(
 				shelter, "/result", "/", &llb.CopyInfo{
@@ -238,7 +228,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 					CopyDirContentsOnly: true,
 				},
 			),
-			extractFileOpts...,
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("extract")),
+			withInternalName("extracting result layers"),
 		)
 
 		var st llb.State
@@ -281,17 +272,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			// Create a new scratch state and overlay the layers from the manifest.json file to it
 			layered := llb.Scratch()
 			for _, layer := range manifest.Layers {
-				layeredFileOpts := []llb.ConstraintsOpt{
-					withInternalName(fmt.Sprintf("importing layer: %s", layer)),
-				}
-				if bc.IsNoCache("layered") {
-					layeredFileOpts = append(layeredFileOpts, llb.IgnoreCache)
-				}
 				layered = layered.File(
 					llb.Copy(extract, layer, "/", &llb.CopyInfo{
 						AttemptUnpack: true,
 					}),
-					layeredFileOpts...,
+					nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
+					withInternalName(fmt.Sprintf("importing layer: %s", layer)),
 				)
 			}
 
