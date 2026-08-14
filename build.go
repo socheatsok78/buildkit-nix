@@ -14,6 +14,7 @@ import (
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/moby/buildkit/identity"
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
@@ -37,10 +38,8 @@ const (
 	keyNixSecurityInsecure = "security.insecure"
 
 	// build-args
-	keyNixImage                     = "image"
-	keyNixOptionSubstituters        = "substituters"
-	keyNixOptionTrustedPublicKeys   = "trusted-public-keys"
-	keyNixOptionTrustedSubstituters = "trusted-substituters"
+	keyNixImage      = "image"
+	nixConfArgPrefix = buildArgPrefix + "nix.conf."
 
 	// secrets
 	secretNixOptionsAccessTokens = "access-tokens"
@@ -98,19 +97,16 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the nix option substituters and trusted substituters from the build options, if provided
-	NixOptionSubstituters := ""
-	if v, ok := opts[keyNixOptionSubstituters]; ok {
-		NixOptionSubstituters = v
+	nixExtraConfigOpt := map[string]string{}
+	for k, v := range opts {
+		if strings.HasPrefix(k, nixConfArgPrefix) {
+			nixExtraConfigOpt[strings.TrimPrefix(k, nixConfArgPrefix)] = v
+		}
 	}
-	NixOptionTrustedSubstituters := ""
-	if v, ok := opts[keyNixOptionTrustedSubstituters]; ok {
-		NixOptionTrustedSubstituters = v
+	nixExtraConfigStr := ""
+	for k, v := range nixExtraConfigOpt {
+		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
 	}
-	NixOptionTrustedPublicKeys := ""
-	if v, ok := opts[keyNixOptionTrustedPublicKeys]; ok {
-		NixOptionTrustedPublicKeys = v
-	}
-
 
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
@@ -150,20 +146,46 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		)
 
 		// Install the buildkit-nix toolbox into the builder image
-		builder, err = toolbox.Install(builder, bc.IsNoCache("toolbox"))
+		builder, err = toolbox.Install(builder, bc.IsNoCache(""))
 		if err != nil {
 			return nil, err
 		}
 
 		// Configure nix.conf
-		builder = builder.Run(
-			llb.AddEnv("BUILDKIT_NIX_OPTION_SUBSTITUTERS", NixOptionSubstituters),
-			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS", NixOptionTrustedPublicKeys),
-			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS", NixOptionTrustedSubstituters),
-			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
-			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-			withInternalName("configure nix.conf"),
-		).Root()
+		{
+			pgId := identity.NewID()
+			pgName := "prepare builder configuration"
+			configure := builder.Run(
+				llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+				llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
+				nixllb.ProgressGroup(pgId, pgName, false),
+				withInternalName("configure default nix.conf"),
+				nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+			)
+			if nixExtraConfigStr != "" {
+				configure = configure.
+					File(
+						llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
+						nixllb.ProgressGroup(pgId, pgName, false),
+						withInternalName("load nix config from build args"),
+						nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+					).
+					Run(
+						nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
+						nixllb.ProgressGroup(pgId, pgName, false),
+						withInternalName("inject nix config from build args into /etc/nix/nix.conf"),
+						nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+					)
+			}
+			configure = configure.
+				Run(
+					llb.Shlex("nix config check"),
+					withInternalName("nix config check"),
+					nixllb.ShouldIgnoreCache(bc.IsNoCache("")),
+				)
+
+			builder = configure.Root()
+		}
 
 		// Nix build
 		builderSt := builder.Run(
