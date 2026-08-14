@@ -271,14 +271,19 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 			// Create a new scratch state and overlay the layers from the manifest.json file to it
 			layered := llb.Scratch()
-			for _, layer := range manifest.Layers {
-				layered = layered.File(
-					llb.Copy(extract, layer, "/", &llb.CopyInfo{
-						AttemptUnpack: true,
-					}),
-					nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
-					withInternalName(fmt.Sprintf("importing layer: %s", layer)),
-				)
+			{
+				pgId := identity.NewID()
+				pgName := "importing layers from manifest.json"
+				for _, layer := range manifest.Layers {
+					layered = layered.File(
+						llb.Copy(extract, layer, "/", &llb.CopyInfo{
+							AttemptUnpack: true,
+						}),
+						nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
+						nixllb.ProgressGroup(pgId, pgName, false),
+						withInternalName(fmt.Sprintf("importing layer: %s", layer)),
+					)
+				}
 			}
 
 			// Assin the layered state to the final state to be returned
