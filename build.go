@@ -14,7 +14,6 @@ import (
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/moby/buildkit/identity"
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
@@ -152,40 +151,33 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 
 		// Configure nix.conf
-		{
-			pgId := identity.NewID()
-			pgName := "prepare builder configuration"
-			configure := builder.Run(
-				llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
-				llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-				nixllb.ProgressGroup(pgId, pgName, false),
-				withInternalName("configure default nix.conf"),
-				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			)
-			if nixExtraConfigStr != "" {
-				configure = configure.
-					File(
-						llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
-						nixllb.ProgressGroup(pgId, pgName, false),
-						withInternalName("load nix config from build args"),
-						nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-					).
-					Run(
-						nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
-						nixllb.ProgressGroup(pgId, pgName, false),
-						withInternalName("inject nix config from build args into /etc/nix/nix.conf"),
-						nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-					)
-			}
+		configure := builder.Run(
+			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
+			withInternalName("configure default nix.conf"),
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
+		)
+		if nixExtraConfigStr != "" {
 			configure = configure.
+				File(
+					llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
+					withInternalName("load nix config from build args"),
+					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
+				).
 				Run(
-					llb.Shlex("nix config check"),
-					withInternalName("nix config check"),
+					nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
+					withInternalName("inject nix config from build args into /etc/nix/nix.conf"),
 					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 				)
-
-			builder = configure.Root()
 		}
+		configure = configure.
+			Run(
+				llb.Shlex("nix config check"),
+				withInternalName("nix config check"),
+				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
+			)
+
+		builder = configure.Root()
 
 		// Nix build
 		builderSt := builder.Run(
@@ -294,15 +286,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			// Create a new scratch state and overlay the layers from the manifest.json file to it
 			layered := llb.Scratch()
 			{
-				pgId := identity.NewID()
-				pgName := "importing layers from manifest.json"
 				for _, layer := range manifest.Layers {
 					layered = layered.File(
 						llb.Copy(extract, layer, "/", &llb.CopyInfo{
 							AttemptUnpack: true,
 						}),
 						nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
-						nixllb.ProgressGroup(pgId, pgName, false),
 						withInternalName(fmt.Sprintf("importing layer: %s", layer)),
 					)
 				}

@@ -4,7 +4,6 @@ import (
 	"embed"
 
 	"github.com/moby/buildkit/client/llb"
-	"github.com/moby/buildkit/identity"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
@@ -18,8 +17,6 @@ func Install(st llb.State, ignoreCache bool) (llb.State, error) {
 	if err != nil {
 		return st, err
 	}
-	pgId := identity.NewID()
-	pgName := "toolbox install"
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -28,7 +25,6 @@ func Install(st llb.State, ignoreCache bool) (llb.State, error) {
 		st = st.File(
 			llb.Mkfile("/etc/nix/"+entry.Name(), 0755, dt),
 			nixllb.ShouldIgnoreCache(ignoreCache),
-			nixllb.ProgressGroup(pgId, pgName, false),
 			nixui.WithInternalNameTag("toolbox")("copying path "+entry.Name()),
 		)
 	}
