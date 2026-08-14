@@ -17,8 +17,8 @@ import (
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
-	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
+	"github.com/socheatsok78/buildkit-nix/toolbox"
 )
 
 const (
@@ -159,103 +159,33 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 		builder := llb.Image(NixImage, builderImageOpts...)
 
+		// Install the buildkit-nix toolbox into the builder image
+		builder, err = toolbox.Install(builder)
+		if err != nil {
+			return nil, err
+		}
+
+		// Configure nix.conf
+		builder = builder.Run(
+			llb.AddEnv("BUILDKIT_NIX_OPTION_SUBSTITUTERS", NixOptionSubstituters),
+			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS", NixOptionTrustedPublicKeys),
+			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS", NixOptionTrustedSubstituters),
+			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
+			withInternalName("configure nix.conf"),
+		).Root()
+
 		// Nix build
 		nixBuildOpts := []llb.RunOption{
 			llb.Security(security),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
 			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
-			llb.AddEnv("BUILDKIT_NIX_OPTION_SUBSTITUTERS", NixOptionSubstituters),
-			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS", NixOptionTrustedPublicKeys),
-			llb.AddEnv("BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS", NixOptionTrustedSubstituters),
-			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
 			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
 			llb.AddMount(mountShelterDir, shelter),
 			llb.AddMount(mountSourceDir, *mainContext),
 			llb.Dir(mountSourceDir),
-			nixllb.Shlexf(`
-				set -euo pipefail
-
-				nix-config-get() {
-					nix --extra-experimental-features nix-command config show | grep "$1" | cut -d"=" -f2 | xargs
-				}
-
-				BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
-				BUILDKIT_NIX_BUILD_TARGET=${BUILDKIT_NIX_BUILD_TARGET:-default}
-				BUILDKIT_NIX_OPTION_SUBSTITUTERS=${BUILDKIT_NIX_OPTION_SUBSTITUTERS:-}
-				BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS=${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:-}
-				BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS=${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:-}
-				BUILDKIT_NIX_STORE_CACHE_KEY=${BUILDKIT_NIX_STORE_CACHE_KEY:-}
-
-				echo "Setup build environment"
-				nix --version
-				{
-					echo "binary-caches-parallel-connections = 15"
-					echo "build-users-group = $(nix-config-get build-users-group)"
-					echo "extra-experimental-features = configurable-impure-env"
-					echo "extra-experimental-features = nix-command flakes"
-					echo "filter-syscalls = false"
-					echo "sandbox = relaxed"
-					if [ -n "${BUILDKIT_NIX_OPTION_SUBSTITUTERS:-}" ]; then
-						echo "substituters = ${BUILDKIT_NIX_OPTION_SUBSTITUTERS} $(nix-config-get substituters)"
-					else
-						echo "substituters = $(nix-config-get substituters)"
-					fi
-					if [ -n "${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS:-}" ]; then
-						echo "trusted-public-keys = ${BUILDKIT_NIX_OPTION_TRUSTED_PUBLIC_KEYS} $(nix-config-get trusted-public-keys)"
-					else
-						echo "trusted-public-keys = $(nix-config-get trusted-public-keys)"
-					fi
-					if [ -n "${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS:-}" ]; then
-						echo "trusted-substituters = ${BUILDKIT_NIX_OPTION_TRUSTED_SUBSTITUTERS}"
-					fi
-					echo "trusted-users = $(whoami)"
-				} | tee /etc/nix/nix.conf
-
-				# This is a fake config for debugging purposes,
-				# it will be printed in the build logs, but it will not be used by nix
-				echo "nix-store-cache-key = ${BUILDKIT_NIX_STORE_CACHE_KEY}"
-				echo ""
-
-				nixopts=()
-
-				# If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
-				if [ -n "${GITHUB_TOKEN:-}" ]; then
-					echo "- Detected GITHUB_TOKEN secret, adding to nix options"
-					nixopts+=("--option" "access-tokens" "github.com=${GITHUB_TOKEN}")
-				fi
-
-				# If there are any secrets in /run/secrets, then add them to nix options,
-				# the secret name is the nix option name and the secret value is the nix option value
-				for f in /run/secrets/*; do
-					if [ -f "$f" ]; then
-						echo "- Detected secret for nix option: $(basename "$f")"
-						nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
-					fi
-				done
-
-				echo -e "\nBuild log data will stream in below:"
-				nix "${nixopts[@]}" --show-trace --log-format raw build ".#${BUILDKIT_NIX_BUILD_TARGET}"
-				echo -e "\nBuild finished!"
-
-				if [ -d "$(readlink -f result)" ]; then
-					echo -n "derivation" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
-					mkdir -p "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
-					cp -af result/* "${BUILDKIT_NIX_BUILD_SHELTER}/result"
-					cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
-				else
-					if tar -tf result | grep -q manifest.json; then
-						echo -n "ocispec" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
-						cp $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result"
-					else
-						echo "ERROR: nix build did not produce a valid result"
-						exit 1
-					fi
-				fi
-
-				echo ""
-				exit 0
-			`),
+			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
 			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
 		}
 		for _, secret := range nixBuildSecrets {
