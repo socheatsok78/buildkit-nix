@@ -1,4 +1,4 @@
-package builder
+package nixfile
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/socheatsok78/buildkit-nix/nixfile/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
-	"github.com/socheatsok78/buildkit-nix/toolbox"
 )
 
 const (
