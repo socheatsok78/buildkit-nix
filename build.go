@@ -79,12 +79,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		bc.Target = "default"
 	}
 
-	// Load the source code from the build context
-	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
-	if err != nil {
-		return nil, err
-	}
-
 	// Load the security mode from the build options, if provided. default (sandbox)
 	security := llb.SecurityModeSandbox
 	if v, ok := opts[keyNixSecurityInsecure]; ok {
@@ -107,6 +101,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
 	}
 
+	// Load the source code from the build context
+	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
+	if err != nil {
+		return nil, err
+	}
+
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
 	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
@@ -123,9 +123,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 		nixStoreCacheKey := path.Clean(fmt.Sprintf("%s/%s/%s/%s", bc.CacheIDNamespace, nixImageDigest, p.OS, p.Architecture))
 
-		withInternalName := nixui.WithInternalName
+		withInternalNameW := nixui.WithInternalName
 		if bc.MultiPlatformRequested {
-			withInternalName = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
+			withInternalNameW = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
 		}
 
 		// Shelter
@@ -141,7 +141,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.WithExportCache(),
 			llb.WithMetaResolver(c),
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			withInternalName(fmt.Sprintf("load builder image from %s", NixImage)),
+			withInternalNameW(fmt.Sprintf("load builder image from %s", NixImage)),
 		)
 
 		// Install the buildkit-nix toolbox into the builder image
@@ -154,28 +154,27 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		configure := builder.Run(
 			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
 			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-			withInternalName("configure default nix.conf"),
+			withInternalNameW("configure default nix.conf"),
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 		)
 		if nixExtraConfigStr != "" {
 			configure = configure.
 				File(
 					llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
-					withInternalName("load nix config from build args"),
+					withInternalNameW("load nix config from build args"),
 					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 				).
 				Run(
 					nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
-					withInternalName("inject nix config from build args into /etc/nix/nix.conf"),
+					withInternalNameW("inject nix config from build args into /etc/nix/nix.conf"),
 					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 				)
 		}
-		configure = configure.
-			Run(
-				llb.Shlex("nix config check"),
-				withInternalName("nix config check"),
-				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			)
+		configure = configure.Run(
+			llb.Shlex("nix config check"),
+			withInternalNameW("nix config check"),
+			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
+		)
 
 		builder = configure.Root()
 
@@ -203,7 +202,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			withInternalName(fmt.Sprintf("nix build .#%s", bc.Target)),
+			withInternalNameW(fmt.Sprintf("nix build .#%s", bc.Target)),
 		)
 
 		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
@@ -243,7 +242,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				},
 			),
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("extract")),
-			withInternalName("extracting result layers"),
+			withInternalNameW("evaluating nix store closure"),
 		)
 
 		var st llb.State
@@ -292,7 +291,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 							AttemptUnpack: true,
 						}),
 						nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
-						withInternalName(fmt.Sprintf("importing layer: %s", layer)),
+						withInternalNameW(fmt.Sprintf("copying layer '%s'...", layer)),
 					)
 				}
 			}
