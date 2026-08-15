@@ -2,9 +2,9 @@ package toolbox
 
 import (
 	"embed"
+	"fmt"
 
 	"github.com/moby/buildkit/client/llb"
-	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
@@ -12,7 +12,7 @@ import (
 var toolbox embed.FS
 
 // Install copy the buildkit-nix scripts into the given llb.State.
-func Install(st llb.State, ignoreCache bool) (llb.State, error) {
+func Install(st llb.State, opts ...llb.ConstraintsOpt) (llb.State, error) {
 	entries, err := toolbox.ReadDir(".")
 	if err != nil {
 		return st, err
@@ -22,11 +22,10 @@ func Install(st llb.State, ignoreCache bool) (llb.State, error) {
 			continue
 		}
 		dt, _ := toolbox.ReadFile(entry.Name())
-		st = st.File(
-			llb.Mkfile("/etc/nix/"+entry.Name(), 0755, dt),
-			nixllb.ShouldIgnoreCache(ignoreCache),
-			nixui.WithInternalNameTag("toolbox")("copying path "+entry.Name()),
-		)
+		filepath := "/etc/nix/" + entry.Name()
+		st = st.File(llb.Mkfile(filepath, 0755, dt), append([]llb.ConstraintsOpt{
+			nixui.WithInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath)),
+		}, opts...)...)
 	}
 
 	return st, nil

@@ -145,7 +145,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		)
 
 		// Install the buildkit-nix toolbox into the builder image
-		builder, err = toolbox.Install(builder, bc.IsNoCache("builder"))
+		builder, err = toolbox.Install(builder, nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")))
 		if err != nil {
 			return nil, err
 		}
