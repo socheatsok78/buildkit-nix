@@ -1,13 +1,19 @@
 package nixllb
 
-import "github.com/moby/buildkit/client/llb"
+import (
+	"fmt"
 
-var Noop = llb.WithDescription(map[string]string{})
+	"github.com/moby/buildkit/client/llb"
+)
 
-func ShouldIgnoreCache(s bool) llb.ConstraintsOpt {
-	if s {
-		return llb.IgnoreCache
-	}
-	return Noop
+func ProgressGroup(id string, name string, weak bool) llb.ConstraintsOpt {
+	return llb.ProgressGroup(id, fmt.Sprintf("[nix] %s", name), weak)
 }
 
+func Shlex(str string) llb.RunOption {
+	return llb.Shlexf("sh -c '%s'", str)
+}
+
+func Shlexf(str string, v ...any) llb.RunOption {
+	return Shlex(fmt.Sprintf(str, v...))
+}
