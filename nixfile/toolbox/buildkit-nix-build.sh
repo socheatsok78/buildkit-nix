@@ -30,9 +30,12 @@ if [ $? -ne 0 ]; then
     nix log $installable
     exit $errcode
 fi
-
 echo -e "\nBuild finished!"
 
+# store the derivation in the shelter for later use
+nix derivation show --quiet "$installable" 2>/dev/null > "${BUILDKIT_NIX_BUILD_SHELTER}/derivation.json"
+
+# evaluate the result
 if [ -d "$(readlink -f result)" ]; then
     echo -n "derivation" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
     mkdir -p "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
