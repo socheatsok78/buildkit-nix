@@ -19,7 +19,6 @@ nix --version
     echo "substituters = $(nix-config-get substituters)"
     echo "trusted-public-keys = $(nix-config-get trusted-public-keys)"
     echo "trusted-users = $(whoami)"
-    echo "post-build-hook = /etc/nix/buildkit-nix-post-build-hook.sh"
 } | tee /etc/nix/nix.conf
 
 # This is a fake config for debugging purposes,
