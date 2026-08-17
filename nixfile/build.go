@@ -37,13 +37,9 @@ const (
 	keyNixSecurityInsecure = "security.insecure"
 
 	// build-args
-	keyNixImage      = "image"
-	nixConfArgPrefix = buildArgPrefix + "nix.conf."
-
-	// secrets
-	secretNixOptionsAccessTokens = "access-tokens"
-	secretNixOptionsImpureEnv    = "impure-env"
-	secretNixOptionsNetrcFile    = "netrc-file"
+	keyNixImage        = "image"
+	nixConfArgPrefix   = buildArgPrefix + "nix.conf."
+	nixSecretArgPrefix = buildArgPrefix + "nix.secret."
 )
 
 const (
@@ -99,6 +95,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	nixExtraConfigStr := ""
 	for k, v := range nixExtraConfigOpt {
 		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
+	}
+
+	// Load the nix option secrets from the build options, if provided
+	nixSecretOpts, err := getSecrets(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Load the source code from the build context
@@ -178,7 +180,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		builder = configure.Root()
 
 		// Nix build
-		builderSt := builder.Run(
+		builderSt := builder.Run(append([]llb.RunOption{
 			llb.Security(security),
 
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
@@ -192,17 +194,12 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.Dir(mountSourceDir),
 			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
 
-			// Secrets
-			llb.AddSecret("/run/secrets/access-tokens", llb.SecretID(secretNixOptionsAccessTokens), llb.SecretOptional),
-			llb.AddSecret("/run/secrets/impure-env", llb.SecretID(secretNixOptionsImpureEnv), llb.SecretOptional),
-			llb.AddSecret("/run/secrets/netrc-file", llb.SecretID(secretNixOptionsNetrcFile), llb.SecretOptional),
-
 			// Special secret for GitHub token, which is used to access private repositories
 			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			withInternalNameW(fmt.Sprintf("nix build .#%s", bc.Target)),
-		)
+		}, nixSecretOpts...)...)
 
 		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
 		shelter = builderSt.GetMount(mountShelterDir)
@@ -356,4 +353,56 @@ func solveResultReference(ctx context.Context, c client.Client, req client.Solve
 	}
 
 	return res, ref, nil
+}
+
+// getSecrets parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+func getSecrets(opts map[string]string) ([]llb.RunOption, error) {
+	runOpts := []llb.RunOption{}
+	for k, v := range opts {
+		if strings.HasPrefix(k, nixSecretArgPrefix) {
+			s, err := parseSecretArg(v)
+			if err != nil {
+				return nil, err
+			}
+			runOpts = append(runOpts, llb.AddSecret(strings.TrimPrefix(k, nixSecretArgPrefix), nixllb.WithSecret(s)))
+		}
+	}
+	return runOpts, nil
+}
+
+// parseSecretArg parses a secret argument string into a llb.SecretInfo struct.
+// The secret argument string can be in the following formats:
+// - id=<secret-id> (to pass the secret as a file) (default: /run/secrets/<secret-id>)
+// - id=<secret-id>,file=<file-path> (to pass the secret as a file) (default: /run/secrets/<secret-id>)
+// - id=<secret-id>,env=<env-var-name> (to pass the secret as an environment variable)
+// the `optional` or `optional=<bool>` flag can be added to the secret definition to make it optional (default: false)
+func parseSecretArg(v string) (*llb.SecretInfo, error) {
+	s := &llb.SecretInfo{}
+
+	valueParts := strings.Split(v, ",")
+	for _, part := range valueParts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := kv[0]
+		value := kv[1]
+
+		switch key {
+		case "id":
+			s.ID = value
+		case "file":
+			s.Target = &value
+		case "env":
+			s.Env = &value
+		case "optional":
+			if optional, err := strconv.ParseBool(value); err == nil {
+				s.Optional = optional
+			}
+		default:
+			return nil, fmt.Errorf("unknown secret option: %s", key)
+		}
+	}
+
+	return s, nil
 }

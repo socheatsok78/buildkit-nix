@@ -17,3 +17,15 @@ func Shlex(str string) llb.RunOption {
 func Shlexf(str string, v ...any) llb.RunOption {
 	return Shlex(fmt.Sprintf(str, v...))
 }
+
+type secretOptionFunc func(*llb.SecretInfo)
+
+func (fn secretOptionFunc) SetSecretOption(si *llb.SecretInfo) {
+	fn(si)
+}
+
+func WithSecret(s *llb.SecretInfo) llb.SecretOption {
+	return secretOptionFunc(func(si *llb.SecretInfo) {
+		*si = *s
+	})
+}
