@@ -14,8 +14,8 @@ import (
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
-	dockerocispecs "github.com/moby/docker-image-spec/specs-go/v1"
-	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
@@ -111,8 +111,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 	// Using the dockerui.Client to enable multi-platform builds
 	// The dockerui.Client will handle the platform selection and build execution for us
-	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispecs.Platform, idx int) (*dockerui.BuildResult, error) {
-		var p ocispecs.Platform
+	rb, err := bc.Build(ctx, func(ctx context.Context, platform *ocispec.Platform, idx int) (*dockerui.BuildResult, error) {
+		var p ocispec.Platform
 		if platform != nil {
 			p = *platform
 		} else {
@@ -236,11 +236,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 		var st llb.State
 		var ref client.Reference
-		var config dockerocispecs.DockerOCIImage
+		var config dockerocispec.DockerOCIImage
 
 		if resultType == "derivation" {
-			config = dockerocispecs.DockerOCIImage{
-				Image: ocispecs.Image{Platform: p},
+			config = dockerocispec.DockerOCIImage{
+				Image: ocispec.Image{Platform: p},
 			}
 			st = extract
 		} else if resultType == "ocispec" {
@@ -321,7 +321,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	return rb.Finalize()
 }
 
-func resolveNixImageDigest(ctx context.Context, c client.Client, nixImage string, platform *ocispecs.Platform) (string, error) {
+func resolveNixImageDigest(ctx context.Context, c client.Client, nixImage string, platform *ocispec.Platform) (string, error) {
 	opt := &sourceresolver.ResolveImageOpt{
 		Platform: platform,
 	}
