@@ -78,8 +78,6 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 
 The frontend can be customized using the following build arguments, which can be passed to the `docker buildx build` command using the `--build-arg` option:
 
-- `image`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
-
 - `nix.conf.substituters`: (default: `""`) A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them.  
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-substituters
 
@@ -91,6 +89,8 @@ The frontend can be customized using the following build arguments, which can be
 
 **Advanced Options**:
 
+- `image`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
+
 - `security.insecure`: (default: `false`), The default security mode is sandbox. With `security.insecure=true`, the builder runs the command without sandbox in insecure mode, which allows to run flows requiring elevated privileges.  
   See https://docs.docker.com/reference/dockerfile/#run---security
 
@@ -98,13 +98,13 @@ The frontend can be customized using the following build arguments, which can be
 ### Build Secrets
 
 You can provide secrets to the frontend using the `--secret` option of `docker buildx build`. The following secrets are supported:
-- `access-tokens`: A file containing access tokens used to access protected GitHub, GitLab, or other locations requiring token-based authentication.  
+- `nix.secret.access-tokens`: A file containing access tokens used to access protected GitHub, GitLab, or other locations requiring token-based authentication.  
     See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-access-tokens.
 
-- `impure-env`: A file containing environment variables that are considered impure and should be passed to the Nix build process.  
+- `nix.secret.impure-env`: A file containing environment variables that are considered impure and should be passed to the Nix build process.  
     See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-impure-env.
 
-- `netrc-file`: If set to an absolute path to a netrc file, Nix will use the HTTP authentication credentials in this file when trying to download from a remote host through HTTP or HTTPS.  
+- `nix.secret.netrc-file`: If set to an absolute path to a netrc file, Nix will use the HTTP authentication credentials in this file when trying to download from a remote host through HTTP or HTTPS.  
     See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-netrc-file.
 
 > [!NOTE]
