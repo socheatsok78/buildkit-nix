@@ -175,7 +175,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalNameW("nix config check"),
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 		)
-
 		builder = configure.Root()
 
 		// Nix build
@@ -213,17 +212,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		shelterRes, err := c.Solve(ctx, client.SolveRequest{
+		_, shelterRef, err := solveResultReference(ctx, c, client.SolveRequest{
 			Definition:   shelterDef.ToPB(),
 			CacheImports: bc.CacheImports,
 		})
-		if err != nil {
-			return nil, err
-		}
-		shelterRef, err := shelterRes.SingleRef()
-		if err != nil {
-			return nil, err
-		}
 
 		// Read the result type from the shelter state to determine how to handle the result of the nix build
 		resultTypeByte, err := shelterRef.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
@@ -260,17 +252,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			if err != nil {
 				return nil, err
 			}
-			extractRes, err := c.Solve(ctx, client.SolveRequest{
+			_, extractRef, err := solveResultReference(ctx, c, client.SolveRequest{
 				Definition:   extractDef.ToPB(),
 				CacheImports: bc.CacheImports,
 			})
-			if err != nil {
-				return nil, err
-			}
-			extractRef, err := extractRes.SingleRef()
-			if err != nil {
-				return nil, err
-			}
 
 			// Parse the manifest.json file to get the list of layers and the config file
 			manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
@@ -317,14 +302,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		res, err := c.Solve(ctx, client.SolveRequest{
+		_, ref, err = solveResultReference(ctx, c, client.SolveRequest{
 			Definition:   def.ToPB(),
 			CacheImports: bc.CacheImports,
 		})
-		if err != nil {
-			return nil, err
-		}
-		ref, err = res.SingleRef()
 		if err != nil {
 			return nil, err
 		}
@@ -361,4 +342,18 @@ func resolveNixImageDigest(ctx context.Context, c client.Client, nixImage string
 		return nixImageRefWithDigest.String(), nil
 	}
 	return nixImage, nil
+}
+
+func solveResultReference(ctx context.Context, c client.Client, req client.SolveRequest) (*client.Result, client.Reference, error) {
+	res, err := c.Solve(ctx, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ref, err := res.SingleRef()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return res, ref, nil
 }
