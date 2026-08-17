@@ -80,13 +80,13 @@ The frontend can be customized using the following build arguments, which can be
 
 - `image`: The Nix image to use for the builder. (default: `docker.io/nixos/nix:latest`)
 
-- `substituters`: (default: `""`) A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them.  
+- `nix.conf.substituters`: (default: `""`) A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them.  
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-substituters
 
-- `trusted-public-keys`: (default: `""`) A whitespace-separated list of public keys.  
+- `nix.conf.trusted-public-keys`: (default: `""`) A whitespace-separated list of public keys.  
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-public-keys
   
-- `trusted-substituters`: (default: `""`) A list of Nix store URLs, separated by whitespace.  
+- `nix.conf.trusted-substituters`: (default: `""`) A list of Nix store URLs, separated by whitespace.
   See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-substituters
 
 **Advanced Options**:
