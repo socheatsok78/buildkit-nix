@@ -7,7 +7,6 @@ nix-config-get() {
     nix --extra-experimental-features nix-command config show | grep "$1" | cut -d"=" -f2 | xargs
 }
 
-echo "Setup build environment"
 nix --version
 {
     echo "binary-caches-parallel-connections = 15"
