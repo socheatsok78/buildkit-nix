@@ -32,12 +32,12 @@ const (
 const (
 	DefaultNixImage = "docker.io/nixos/nix:latest"
 
-	// session
-	keyNixSessionID        = "BUILDKIT_NIX_SESSIONID"
+	// build-args keys
+	keyNixImage            = "image"
 	keyNixSecurityInsecure = "security.insecure"
+	keyNixSessionID        = "BUILDKIT_NIX_SESSIONID"
 
-	// build-args
-	keyNixImage        = "image"
+	// build-args prefixes
 	nixConfArgPrefix   = buildArgPrefix + "nix.conf."
 	nixSecretArgPrefix = buildArgPrefix + "nix.secret."
 )
