@@ -1,4 +1,4 @@
-package nixfile
+package builder
 
 import (
 	"fmt"
