@@ -24,8 +24,25 @@ func (fn secretOptionFunc) SetSecretOption(si *llb.SecretInfo) {
 	fn(si)
 }
 
-func WithSecret(s *llb.SecretInfo) llb.SecretOption {
+func WithSecret(dest string, s *llb.SecretInfo) llb.RunOption {
+	return llb.AddSecret(
+		fmt.Sprintf("/run/secrets/%s", dest),
+		llb.SecretID(dest),
+		AddSecretInfo(s),
+	)
+}
+
+func AddSecretInfo(s *llb.SecretInfo) llb.SecretOption {
 	return secretOptionFunc(func(si *llb.SecretInfo) {
-		*si = *s
+		if s.ID != "" {
+			si.ID = s.ID
+		}
+		if s.Target != nil {
+			si.Target = s.Target
+		}
+		if s.Env != nil {
+			si.Env = s.Env
+		}
+		si.Optional = s.Optional
 	})
 }

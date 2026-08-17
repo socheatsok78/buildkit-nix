@@ -98,7 +98,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the nix option secrets from the build options, if provided
-	nixSecretOpts, err := getSecrets(opts)
+	nixSecretOpts, err := getSecretsOpts(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -355,16 +355,17 @@ func solveResultReference(ctx context.Context, c client.Client, req client.Solve
 	return res, ref, nil
 }
 
-// getSecrets parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
-func getSecrets(opts map[string]string) ([]llb.RunOption, error) {
+// getSecretsOpts parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+func getSecretsOpts(opts map[string]string) ([]llb.RunOption, error) {
 	runOpts := []llb.RunOption{}
 	for k, v := range opts {
 		if strings.HasPrefix(k, nixSecretArgPrefix) {
+			dest := strings.TrimPrefix(k, nixSecretArgPrefix)
 			s, err := parseSecretArg(v)
 			if err != nil {
 				return nil, err
 			}
-			runOpts = append(runOpts, llb.AddSecret(strings.TrimPrefix(k, nixSecretArgPrefix), nixllb.WithSecret(s)))
+			runOpts = append(runOpts, nixllb.WithSecret(dest, s))
 		}
 	}
 	return runOpts, nil
@@ -373,14 +374,14 @@ func getSecrets(opts map[string]string) ([]llb.RunOption, error) {
 // parseSecretArg parses a secret argument string into a llb.SecretInfo struct.
 // The secret argument string can be in the following formats:
 // - id=<secret-id> (to pass the secret as a file) (default: /run/secrets/<secret-id>)
-// - id=<secret-id>,file=<file-path> (to pass the secret as a file) (default: /run/secrets/<secret-id>)
+// - id=<secret-id>,target=<file-path> (to pass the secret as a file) (default: /run/secrets/<secret-id>)
 // - id=<secret-id>,env=<env-var-name> (to pass the secret as an environment variable)
 // the `optional` or `optional=<bool>` flag can be added to the secret definition to make it optional (default: false)
 func parseSecretArg(v string) (*llb.SecretInfo, error) {
-	s := &llb.SecretInfo{}
+	s := &llb.SecretInfo{Optional: false}
 
-	valueParts := strings.Split(v, ",")
-	for _, part := range valueParts {
+	_parts := strings.Split(v, ",")
+	for _, part := range _parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
 			continue
@@ -388,10 +389,19 @@ func parseSecretArg(v string) (*llb.SecretInfo, error) {
 		key := kv[0]
 		value := kv[1]
 
+		if value == "" {
+			switch key {
+			case "optional":
+				s.Optional = true
+			default:
+				return nil, fmt.Errorf("secret option %s requires a value", key)
+			}
+		}
+
 		switch key {
 		case "id":
 			s.ID = value
-		case "file":
+		case "target":
 			s.Target = &value
 		case "env":
 			s.Env = &value
