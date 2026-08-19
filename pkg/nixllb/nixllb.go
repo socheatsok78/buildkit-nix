@@ -12,3 +12,8 @@ func ShouldIgnoreCache(s bool) llb.ConstraintsOpt {
 	}
 	return Noop
 }
+
+// ResetExcludePatterns returns an llb.LocalOption that resets the exclude patterns for the local context to an empty list.
+func ResetExcludePatterns() llb.LocalOption {
+	return llb.ExcludePatterns([]string{})
+}

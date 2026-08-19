@@ -102,7 +102,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the source code from the build context
-	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
+	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"), nixllb.ResetExcludePatterns())
 	if err != nil {
 		return nil, err
 	}
