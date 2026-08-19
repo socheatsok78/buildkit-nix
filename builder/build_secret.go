@@ -9,12 +9,16 @@ import (
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
 
-// getSecretsRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
-func getSecretsRunOptions(opts map[string]string) ([]llb.RunOption, error) {
+const (
+	keyNixSecretArgPrefix = buildArgPrefix + "nix.secret."
+)
+
+// NixSecretRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+func NixSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
 	runOpts := []llb.RunOption{}
 	for k, v := range opts {
-		if strings.HasPrefix(k, nixSecretArgPrefix) {
-			dest := strings.TrimPrefix(k, nixSecretArgPrefix)
+		if strings.HasPrefix(k, keyNixSecretArgPrefix) {
+			dest := strings.TrimPrefix(k, keyNixSecretArgPrefix)
 			s, err := parseSecretArg(v)
 			if err != nil {
 				return nil, err

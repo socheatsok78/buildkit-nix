@@ -35,11 +35,9 @@ const (
 	// build-args keys
 	keyNixImage            = "image"
 	keyNixSecurityInsecure = "security.insecure"
-	keyNixSessionID        = "BUILDKIT_NIX_SESSIONID"
 
 	// build-args prefixes
-	nixConfArgPrefix   = buildArgPrefix + "nix.conf."
-	nixSecretArgPrefix = buildArgPrefix + "nix.secret."
+	keyNixConfArgPrefix = buildArgPrefix + "nix.conf."
 )
 
 const (
@@ -88,8 +86,8 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	// Load the nix option substituters and trusted substituters from the build options, if provided
 	nixExtraConfigOpt := map[string]string{}
 	for k, v := range opts {
-		if strings.HasPrefix(k, nixConfArgPrefix) {
-			nixExtraConfigOpt[strings.TrimPrefix(k, nixConfArgPrefix)] = v
+		if strings.HasPrefix(k, keyNixConfArgPrefix) {
+			nixExtraConfigOpt[strings.TrimPrefix(k, keyNixConfArgPrefix)] = v
 		}
 	}
 	nixExtraConfigStr := ""
@@ -98,7 +96,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the nix option secrets from the build options, if provided
-	nixSecretOpts, err := getSecretsRunOptions(opts)
+	nixSecretOpts, err := NixSecretRunOptions(opts)
 	if err != nil {
 		return nil, err
 	}
