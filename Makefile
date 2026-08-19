@@ -6,6 +6,8 @@ endif
 it: flakes
 bootstrap: dockerfile
 flakes:
+	@echo "Building image..."
 	docker buildx bake flakes --load $(buildxflags)
 dockerfile:
+	@echo "Building bootstrap image..."
 	docker buildx bake dockerfile --load $(buildxflags)
