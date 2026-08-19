@@ -5,6 +5,8 @@ BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
 installable="$1"
 nixopts=( --show-trace --print-build-logs --log-format raw )
 
+echo "Prepare build environment..."
+
 # If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
 if [ -n "${GITHUB_TOKEN:-}" ]; then
     echo "- Reading nix option 'access-tokens' for github.com from environment variable GITHUB_TOKEN..."
