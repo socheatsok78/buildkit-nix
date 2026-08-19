@@ -171,6 +171,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount(mountSourceDir, *mainContext),
 
 			llb.Dir(mountSourceDir),
+			llb.AddEnv("NIX_SHOW_STATS", "1"),
 			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
 
 			// Special secret for GitHub token, which is used to access private repositories
