@@ -12,10 +12,15 @@ import (
 const (
 	keyNixSecretArgPrefix = buildArgPrefix + "nix.secret."
 
+	// keyAccessTokensArgPrefix access tokens used to access protected GitHub, GitLab, or other locations requiring token-based authentication.
+	// See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-access-tokens
+	keyAccessTokensArgPrefix = buildArgPrefix + "nix.access-tokens."
+
 	// Impure environment variables are considered secret and are passed to the nix build as secrets,
 	// so that they are not exposed in the build logs or in the final image.
 	//
 	// They are prefixed with "nix.impure-env." to avoid conflicts with other build-args.
+	// See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-impure-env
 	keyImpureEnvArgPrefix = buildArgPrefix + "nix.impure-env."
 )
 
@@ -27,6 +32,12 @@ func NixSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
 		return nil, err
 	}
 	runOpts = append(runOpts, nixConfigSecretOpts...)
+
+	nixAccessTokensSecretOpts, err := NixAccessTokensRunOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	runOpts = append(runOpts, nixAccessTokensSecretOpts...)
 
 	nixImpureEnvSecretOpts, err := NixImpureEnvRunOptions(opts)
 	if err != nil {
@@ -49,6 +60,21 @@ func NixConfigSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) 
 				return nil, err
 			}
 			runOpts = append(runOpts, nixllb.WithRunSecret(dest, s))
+		}
+	}
+	return runOpts, nil
+}
+
+func NixAccessTokensRunOptions(opts map[string]string) ([]llb.RunOption, error) {
+	runOpts := []llb.RunOption{}
+	for k, v := range opts {
+		if strings.HasPrefix(k, keyAccessTokensArgPrefix) {
+			dest := strings.TrimPrefix(k, keyAccessTokensArgPrefix)
+			s, err := parseSecretArg(v)
+			if err != nil {
+				return nil, err
+			}
+			runOpts = append(runOpts, nixllb.WithAccessTokenSecret(dest, s))
 		}
 	}
 	return runOpts, nil
