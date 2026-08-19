@@ -20,25 +20,26 @@ echo "Prepare build environment..."
 
 # Pass any secrets from /run/secrets to the nix build as options
 for f in /run/secrets/*; do
-    if [ -f "$f" ]; then
-        echo "- Reading nix option '$(basename "$f")' from secret..."
-        nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
-    fi
+	if [ -f "$f" ]; then
+		echo "- Reading nix option '$(basename "$f")' from secret..."
+		nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
+	fi
+done
 done
 
 # Pass any impure environment variables from /run/impure-env to the nix build as options
 for f in /run/impure-env/*; do
-    if [ -f "$f" ]; then
-        echo "- Reading impure-env '$(basename "$f")' from secret..."
-        nixopts+=("--option" "impure-env" "$(basename "$f")=$(cat "$f")")
-    fi
+	if [ -f "$f" ]; then
+		echo "- Reading impure-env '$(basename "$f")' from secret..."
+		nixopts+=("--option" "impure-env" "$(basename "$f")=$(cat "$f")")
+	fi
 done
 
 echo -e "\nBuild log data will stream in below:"
 nix "${nixopts[@]}" build "$installable"
 if [ $? -ne 0 ]; then
-    errcode=$?
-    exit $errcode
+	errcode=$?
+	exit $errcode
 fi
 echo -e "\nBuild finished!"
 
@@ -47,18 +48,18 @@ nix derivation show --quiet "$installable" 2>/dev/null > "${BUILDKIT_NIX_BUILD_S
 
 # evaluate the result
 if [ -d "$(readlink -f result)" ]; then
-    echo -n "derivation" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
-    mkdir -p "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
-    cp -af result/* "${BUILDKIT_NIX_BUILD_SHELTER}/result"
-    cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
+	echo -n "derivation" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
+	mkdir -p "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
+	cp -af result/* "${BUILDKIT_NIX_BUILD_SHELTER}/result"
+	cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result/nix/store"
 else
-    if tar -tf result | grep -q manifest.json; then
-        echo -n "ocispec" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
-        cp $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result"
-    else
-        echo "ERROR: nix build did not produce a valid result"
-        exit 1
-    fi
+	if tar -tf result | grep -q manifest.json; then
+		echo -n "ocispec" > "${BUILDKIT_NIX_BUILD_SHELTER}/type"
+		cp $(nix-store -qR result/) "${BUILDKIT_NIX_BUILD_SHELTER}/result"
+	else
+		echo "ERROR: nix build did not produce a valid result"
+		exit 1
+	fi
 fi
 
 exit 0
