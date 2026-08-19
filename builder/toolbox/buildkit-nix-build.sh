@@ -8,10 +8,15 @@ nixopts=( --show-trace --print-build-logs --log-format raw )
 echo "Prepare build environment..."
 
 # If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-    echo "- Reading nix option 'access-tokens' for github.com from environment variable GITHUB_TOKEN..."
-    nixopts+=("--option" "access-tokens" "github.com=${GITHUB_TOKEN}")
-fi
+{
+	GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-"https://github.com"}
+	__GITHUB_SERVER_HOST=${GITHUB_SERVER_URL#https://}
+	__GITHUB_SERVER_HOST=${__GITHUB_SERVER_HOST%%/}
+	if [ ! -f "/run/access-tokens/${__GITHUB_SERVER_HOST}" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
+		echo "- Reading nix option 'access-tokens' for ${__GITHUB_SERVER_HOST} from environment variable GITHUB_TOKEN..."
+		nixopts+=("--option" "access-tokens" "${__GITHUB_SERVER_HOST}=${GITHUB_TOKEN}")
+	fi
+}
 
 # Pass any secrets from /run/secrets to the nix build as options
 for f in /run/secrets/*; do
