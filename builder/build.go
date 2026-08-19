@@ -41,10 +41,10 @@ const (
 )
 
 const (
-	mountDockerfileDir    = "/mnt/dockerfile"
-	mountNixStoreCacheDir = "/mnt/nix"
-	mountSourceDir        = "/mnt/source"
-	mountShelterDir       = "/shelter"
+	mountDockerfileDir      = "/mnt/dockerfile"
+	mountNixStoreCacheDir   = "/mnt/nix"
+	mountNixStoreClosureDir = "/nix-store-closure"
+	mountSourceDir          = "/mnt/source"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
@@ -128,9 +128,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalNameW = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
 		}
 
-		// Shelter
-		shelter := llb.Scratch()
-
 		// Load the nix image and set it as the base image for the build
 		// Prefer local cache for the nix image, to avoid pulling it from the registry if it's already available
 		builder := llb.Image(
@@ -163,11 +160,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		builderSt := builder.Run(append([]llb.RunOption{
 			llb.Security(security),
 
-			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
+			llb.AddEnv("BUILDKIT_NIX_STORE_CLOSURE_DIR", mountNixStoreClosureDir),
 
 			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
-			llb.AddMount(mountShelterDir, shelter),
+			llb.AddMount(mountNixStoreClosureDir, llb.Scratch()),
 			llb.AddMount(mountSourceDir, *mainContext),
 
 			llb.Dir(mountSourceDir),
@@ -181,31 +178,34 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalNameW(fmt.Sprintf("nix build .#%s", bc.Target)),
 		}, nixBuildSecretOpts...)...)
 
-		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
-		shelter = builderSt.GetMount(mountShelterDir)
+		// Re-assign the nixStoreClosure state to the result of the nix build, so that we can read the result type and extract the result from it
+		nixStoreClosure := builderSt.GetMount(mountNixStoreClosureDir)
 
 		// Marshal the shelter state to a definition and solve it to get a reference to the result of the nix build
-		shelterDef, err := shelter.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+		nixStoreClosureDef, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 		if err != nil {
 			return nil, err
 		}
-		_, shelterRef, err := solveResultReference(ctx, c, client.SolveRequest{
-			Definition:   shelterDef.ToPB(),
+		_, nixStoreClosureRef, err := solveResultReference(ctx, c, client.SolveRequest{
+			Definition:   nixStoreClosureDef.ToPB(),
 			CacheImports: bc.CacheImports,
 		})
 
 		// Read the result type from the shelter state to determine how to handle the result of the nix build
-		resultTypeByte, err := shelterRef.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
+		resultTypeByte, err := nixStoreClosureRef.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
 		if err != nil {
 			return nil, err
 		}
 		resultType := strings.TrimSpace(string(resultTypeByte))
 
-		// Extract the result of the nix build to a new scratch state
-		extract := llb.Scratch()
-		extract = extract.File(
+		// Create a new scratch state and copy the result of the nix build from the shelter state to it, depending on the result type
+		//
+		// - If the result type is "derivation", we will copy the result of the nix build to the scratch state and return it as a reference
+		// - If the result type is "ocispec", we will copy the result of the nix build to the scratch state, parse the manifest.json file,
+		//   and return the layers and config file as a reference
+		st := llb.Scratch().File(
 			llb.Copy(
-				shelter, "/result", "/", &llb.CopyInfo{
+				nixStoreClosure, "/result", "/", &llb.CopyInfo{
 					AttemptUnpack:       true,
 					CopyDirContentsOnly: true,
 				},
@@ -214,18 +214,15 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalNameW("evaluating nix store closure"),
 		)
 
-		var st llb.State
-		var ref client.Reference
 		var config dockerocispec.DockerOCIImage
 
 		if resultType == "derivation" {
 			config = dockerocispec.DockerOCIImage{
 				Image: ocispec.Image{Platform: p},
 			}
-			st = extract
 		} else if resultType == "ocispec" {
 			// Prepare the builder state to extract the manifest.json file
-			extractDef, err := extract.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+			extractDef, err := st.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 			if err != nil {
 				return nil, err
 			}
@@ -249,7 +246,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			{
 				for _, layer := range manifest.Layers {
 					layered = layered.File(
-						llb.Copy(extract, layer, "/", &llb.CopyInfo{
+						llb.Copy(st, layer, "/", &llb.CopyInfo{
 							AttemptUnpack: true,
 						}),
 						nixllb.ShouldIgnoreCache(bc.IsNoCache("layered")),
@@ -279,7 +276,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, ref, err = solveResultReference(ctx, c, client.SolveRequest{
+		_, ref, err := solveResultReference(ctx, c, client.SolveRequest{
 			Definition:   def.ToPB(),
 			CacheImports: bc.CacheImports,
 		})
