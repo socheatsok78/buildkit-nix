@@ -1,11 +1,9 @@
 #!/bin/sh
-set -uo pipefail
 
 BUILDKIT_NIX_BUILD_SHELTER=${BUILDKIT_NIX_BUILD_SHELTER:-/shelter}
-BUILDKIT_NIX_BUILD_TARGET=${BUILDKIT_NIX_BUILD_TARGET:-default}
 
-installable="${1:-${BUILDKIT_NIX_BUILD_TARGET}}"
-nixopts=()
+installable="$1"
+nixopts=( --show-trace --print-build-logs --log-format raw )
 
 # If GITHUB_TOKEN is not empty, then add it to the nix options as a secret
 if [ -n "${GITHUB_TOKEN:-}" ]; then
@@ -30,11 +28,9 @@ for f in /run/impure-env/*; do
 done
 
 echo -e "\nBuild log data will stream in below:"
-nix "${nixopts[@]}" --show-trace --log-format raw build "$installable"
+nix "${nixopts[@]}" build "$installable"
 if [ $? -ne 0 ]; then
     errcode=$?
-    echo -e "\nBuild failed, dumping log data:"
-    nix log $installable
     exit $errcode
 fi
 echo -e "\nBuild finished!"

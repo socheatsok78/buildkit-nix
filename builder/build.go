@@ -164,7 +164,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.Security(security),
 
 			llb.AddEnv("BUILDKIT_NIX_BUILD_SHELTER", mountShelterDir),
-			llb.AddEnv("BUILDKIT_NIX_BUILD_TARGET", bc.Target),
 
 			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
 			llb.AddMount("/build", llb.Scratch()),
