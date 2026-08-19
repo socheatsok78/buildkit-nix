@@ -9,46 +9,36 @@ import (
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
-func (nixbld *Builder) Build(target string, source llb.State, ro ...llb.RunOption) llb.State {
+func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 	nixbld.State, _ = toolbox.Install(nixbld.State, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))
 
 	nixbld.State = nixbld.State.Run(
-		mergeSlices(
-			[]llb.RunOption{
-				llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),
-				llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
-				llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-				withInternalNameW("configure nix.conf"),
-			},
-			ro,
-		)...,
+		llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),
+		llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
+		llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
+		withInternalNameW("configure nix.conf"),
+		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
 	).Root()
 
 	nixbld.State = nixbld.State.Run(
-		mergeSlices(
-			[]llb.RunOption{
-				llb.Security(nixbld.SecurityMode),
+		llb.Security(nixbld.SecurityMode),
 
-				llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
+		llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
 
-				llb.AddMount("/nix", nixbld.State, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixbld.NixStoreCacheKey, llb.CacheMountLocked)),
-				llb.AddMount("/build", llb.Scratch()),
-				llb.AddMount(mountShelterDir, llb.Scratch()),
-				llb.AddMount(mountSourceDir, source),
+		llb.AddMount("/nix", nixbld.State, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixbld.NixStoreCacheKey, llb.CacheMountLocked)),
+		llb.AddMount("/build", llb.Scratch()),
+		llb.AddMount(mountShelterDir, llb.Scratch()),
+		llb.AddMount(mountSourceDir, source),
 
-				llb.Dir(mountSourceDir),
-				llb.AddEnv("NIX_SHOW_STATS", "1"),
-				llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, target),
+		llb.Dir(mountSourceDir),
+		llb.AddEnv("NIX_SHOW_STATS", "1"),
+		llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, target),
 
-				// Special secret for GitHub token, which is used to access private repositories
-				llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
+		// Special secret for GitHub token, which is used to access private repositories
+		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
-				withInternalNameW(fmt.Sprintf("nix build .#%s", target)),
-				nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
-			},
-			nixbld.NixBuildSecrets,
-			ro,
-		)...,
+		withInternalNameW(fmt.Sprintf("nix build .#%s", target)),
+		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
 	).GetMount(mountShelterDir)
 
 	return nixbld.State

@@ -3,6 +3,7 @@ package builder
 import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/solver/pb"
+	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
 
 const (
@@ -22,11 +23,16 @@ type Builder struct {
 }
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
-	nixbld := &Builder{NixStoreCacheKey: ref, NixUserConfigs: ""}
+	nixbld := &Builder{
+		IgnoreCache:      true,
+		NixStoreCacheKey: ref,
+		NixUserConfigs:   "",
+		SecurityMode:     llb.SecurityModeSandbox,
+	}
 	for _, opt := range opts {
 		opt.SetBuilderOption(nixbld)
 	}
-	nixbld.State = llb.Image(ref, nixbld.ImageOpts...)
+	nixbld.State = llb.Image(ref, append(nixbld.ImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
 	return nixbld
 }
 

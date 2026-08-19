@@ -136,7 +136,6 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				llb.ResolveDigest(true),
 				llb.WithMetaResolver(c),
 				llb.WithExportCache(),
-				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			),
 			builder.NixBuildSecrets(nixBuildSecretOpts...),
 			builder.NixStoreCacheKey(nixStoreCacheKey),
