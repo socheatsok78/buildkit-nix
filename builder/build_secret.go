@@ -19,6 +19,24 @@ const (
 	keyImpureEnvArgPrefix = buildArgPrefix + "nix.impure-env."
 )
 
+func NixSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
+	runOpts := []llb.RunOption{}
+
+	nixConfigSecretOpts, err := NixConfigSecretRunOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	runOpts = append(runOpts, nixConfigSecretOpts...)
+
+	nixImpureEnvSecretOpts, err := NixImpureEnvRunOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	runOpts = append(runOpts, nixImpureEnvSecretOpts...)
+
+	return runOpts, nil
+}
+
 // NixConfigSecretRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
 // The secrets will be mounted as files in `/run/secrets/<secret-id>` and the nix build will read them from there.
 func NixConfigSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {

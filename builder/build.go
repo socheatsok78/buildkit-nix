@@ -95,22 +95,11 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
 	}
 
-	// Nix build secrets
-	nixBuildSecretOpts := []llb.RunOption{}
-
 	// Load the nix option secrets from the build options, if provided
-	nixConfigSecretOpts, err := NixConfigSecretRunOptions(opts)
+	nixBuildSecretOpts, err := NixSecretRunOptions(opts)
 	if err != nil {
 		return nil, err
 	}
-	nixBuildSecretOpts = append(nixBuildSecretOpts, nixConfigSecretOpts...)
-
-	// Load the nix option impure environment variables as secrets from the build options, if provided
-	nixImpureEnvOpts, err := NixImpureEnvRunOptions(opts)
-	if err != nil {
-		return nil, err
-	}
-	nixBuildSecretOpts = append(nixBuildSecretOpts, nixImpureEnvOpts...)
 
 	// Load the source code from the build context
 	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
