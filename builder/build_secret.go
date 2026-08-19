@@ -13,8 +13,8 @@ const (
 	keyNixSecretArgPrefix = buildArgPrefix + "nix.secret."
 )
 
-// NixSecretRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
-func NixSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
+// NixConfigSecretRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+func NixConfigSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
 	runOpts := []llb.RunOption{}
 	for k, v := range opts {
 		if strings.HasPrefix(k, keyNixSecretArgPrefix) {

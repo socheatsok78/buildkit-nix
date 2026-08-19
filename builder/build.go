@@ -96,7 +96,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	}
 
 	// Load the nix option secrets from the build options, if provided
-	nixSecretOpts, err := NixSecretRunOptions(opts)
+	nixSecretOpts, err := NixConfigSecretRunOptions(opts)
 	if err != nil {
 		return nil, err
 	}
