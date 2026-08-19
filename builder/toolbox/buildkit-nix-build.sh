@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BUILDKIT_NIX_STORE_CLOSURE_DIR=${BUILDKIT_NIX_STORE_CLOSURE_DIR:-"/nix-store-closure"}
+BUILDKIT_NIX_SHELTER_DIR=${BUILDKIT_NIX_SHELTER_DIR:-"/nix-store-closure"}
 
 installable="$1"
 nixopts=( --show-trace --print-build-logs --log-format raw )
@@ -51,18 +51,18 @@ fi
 echo -e "\nBuild finished!"
 
 # store the derivation in the shelter for later use
-nix derivation show --quiet "$installable" 2>/dev/null > "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/derivation.json"
+nix derivation show --quiet "$installable" 2>/dev/null > "${BUILDKIT_NIX_SHELTER_DIR}/derivation.json"
 
 # evaluate the result
 if [ -d "$(readlink -f result)" ]; then
-	echo -n "derivation" > "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/type"
-	mkdir -p "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/result/nix/store"
-	cp -af result/* "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/result"
-	cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/result/nix/store"
+	echo -n "derivation" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
+	mkdir -p "${BUILDKIT_NIX_SHELTER_DIR}/result/nix/store"
+	cp -af result/* "${BUILDKIT_NIX_SHELTER_DIR}/result"
+	cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result/nix/store"
 else
 	if tar -tf result | grep -q manifest.json; then
-		echo -n "ocispec" > "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/type"
-		cp $(nix-store -qR result/) "${BUILDKIT_NIX_STORE_CLOSURE_DIR}/result"
+		echo -n "ocispec" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
+		cp $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result"
 	else
 		echo "ERROR: nix build did not produce a valid result"
 		exit 1
