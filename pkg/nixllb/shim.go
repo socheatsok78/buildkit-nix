@@ -32,6 +32,14 @@ func WithRunSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	)
 }
 
+func WithImpureEnvSecret(dest string, s *llb.SecretInfo) llb.RunOption {
+	return llb.AddSecret(
+		fmt.Sprintf("/run/impure-env/%s", dest),
+		llb.SecretID(dest),
+		AddSecretInfo(s),
+	)
+}
+
 func AddSecretInfo(s *llb.SecretInfo) llb.SecretOption {
 	return secretOptionFunc(func(si *llb.SecretInfo) {
 		if s.ID != "" {

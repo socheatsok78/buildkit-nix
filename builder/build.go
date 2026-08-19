@@ -95,11 +95,22 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
 	}
 
+	// Nix build secrets
+	nixBuildSecretOpts := []llb.RunOption{}
+
 	// Load the nix option secrets from the build options, if provided
-	nixSecretOpts, err := NixConfigSecretRunOptions(opts)
+	nixConfigSecretOpts, err := NixConfigSecretRunOptions(opts)
 	if err != nil {
 		return nil, err
 	}
+	nixBuildSecretOpts = append(nixBuildSecretOpts, nixConfigSecretOpts...)
+
+	// Load the nix option impure environment variables as secrets from the build options, if provided
+	nixImpureEnvOpts, err := NixImpureEnvRunOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	nixBuildSecretOpts = append(nixBuildSecretOpts, nixImpureEnvOpts...)
 
 	// Load the source code from the build context
 	mainContext, err := bc.MainContext(ctx, llb.SessionID(c.BuildOpts().SessionID), llb.SharedKeyHint("nix-src"))
@@ -172,6 +183,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			llb.AddMount(mountSourceDir, *mainContext),
 
 			llb.Dir(mountSourceDir),
+			llb.AddEnv("NIX_SHOW_STATS", "1"),
 			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
 
 			// Special secret for GitHub token, which is used to access private repositories
@@ -179,7 +191,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
 			withInternalNameW(fmt.Sprintf("nix build .#%s", bc.Target)),
-		}, nixSecretOpts...)...)
+		}, nixBuildSecretOpts...)...)
 
 		// Re-assign the shelter state to the result of the nix build, so that we can read the result type and extract the result from it
 		shelter = builderSt.GetMount(mountShelterDir)

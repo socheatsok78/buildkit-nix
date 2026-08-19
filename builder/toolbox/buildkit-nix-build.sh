@@ -13,12 +13,19 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
     nixopts+=("--option" "access-tokens" "github.com=${GITHUB_TOKEN}")
 fi
 
-# If there are any secrets in /run/secrets, then add them to nix options,
-# the secret name is the nix option name and the secret value is the nix option value
+# Pass any secrets from /run/secrets to the nix build as options
 for f in /run/secrets/*; do
     if [ -f "$f" ]; then
         echo "- Reading nix option '$(basename "$f")' from secret..."
         nixopts+=("--option" "$(basename "$f")" "$(cat "$f")")
+    fi
+done
+
+# Pass any impure environment variables from /run/impure-env to the nix build as options
+for f in /run/impure-env/*; do
+    if [ -f "$f" ]; then
+        echo "- Reading impure-env '$(basename "$f")' from secret..."
+        nixopts+=("--option" "impure-env" "$(basename "$f")=$(cat "$f")")
     fi
 done
 

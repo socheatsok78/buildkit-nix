@@ -11,9 +11,16 @@ import (
 
 const (
 	keyNixSecretArgPrefix = buildArgPrefix + "nix.secret."
+
+	// Impure environment variables are considered secret and are passed to the nix build as secrets,
+	// so that they are not exposed in the build logs or in the final image.
+	//
+	// They are prefixed with "nix.impure-env." to avoid conflicts with other build-args.
+	keyImpureEnvArgPrefix = buildArgPrefix + "nix.impure-env."
 )
 
 // NixConfigSecretRunOptions parses the nix option secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+// The secrets will be mounted as files in `/run/secrets/<secret-id>` and the nix build will read them from there.
 func NixConfigSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
 	runOpts := []llb.RunOption{}
 	for k, v := range opts {
@@ -24,6 +31,23 @@ func NixConfigSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) 
 				return nil, err
 			}
 			runOpts = append(runOpts, nixllb.WithRunSecret(dest, s))
+		}
+	}
+	return runOpts, nil
+}
+
+// NixImpureEnvRunOptions parses the nix impure environment variable secrets from the build options and returns a list of llb.RunOption to be used in the nix build command.
+// The secrets will be mounted as files in `/run/impure-env/<secret-id>` and the nix build will read them from there.
+func NixImpureEnvRunOptions(opts map[string]string) ([]llb.RunOption, error) {
+	runOpts := []llb.RunOption{}
+	for k, v := range opts {
+		if strings.HasPrefix(k, keyImpureEnvArgPrefix) {
+			dest := strings.TrimPrefix(k, keyImpureEnvArgPrefix)
+			s, err := parseSecretArg(v)
+			if err != nil {
+				return nil, err
+			}
+			runOpts = append(runOpts, nixllb.WithImpureEnvSecret(dest, s))
 		}
 	}
 	return runOpts, nil
