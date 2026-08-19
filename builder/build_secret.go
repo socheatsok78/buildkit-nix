@@ -23,7 +23,7 @@ func NixSecretRunOptions(opts map[string]string) ([]llb.RunOption, error) {
 			if err != nil {
 				return nil, err
 			}
-			runOpts = append(runOpts, nixllb.WithSecret(dest, s))
+			runOpts = append(runOpts, nixllb.WithRunSecret(dest, s))
 		}
 	}
 	return runOpts, nil
