@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BUILDKIT_NIX_STORE_CACHE_KEY=${BUILDKIT_NIX_STORE_CACHE_KEY:-}
+BUILDKIT_NIX_EXTRA_CONFIG=${BUILDKIT_NIX_EXTRA_CONFIG:-}
 
 nix-config-get() {
     nix --extra-experimental-features nix-command config show | grep "$1" | cut -d"=" -f2 | xargs
@@ -18,9 +19,13 @@ nix --version
     echo "substituters = $(nix-config-get substituters)"
     echo "trusted-public-keys = $(nix-config-get trusted-public-keys)"
     echo "trusted-users = $(whoami)"
-} | tee /etc/nix/nix.conf
+    if [ -n "$BUILDKIT_NIX_EXTRA_CONFIG" ]; then echo "$BUILDKIT_NIX_EXTRA_CONFIG"; fi
+} | tee /etc/nix/nix.conf | sort
 
 # This is a fake config for debugging purposes,
 # it will be printed in the build logs, but it will not be used by nix
 echo "nix-store-cache-key = ${BUILDKIT_NIX_STORE_CACHE_KEY}"
-exit 0
+echo -ne "\n"
+
+# Check the nix config for errors
+nix config check

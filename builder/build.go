@@ -151,31 +151,13 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		}
 
 		// Configure nix.conf
-		configure := builder.Run(
+		builder = builder.Run(
 			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
+			llb.AddEnv("BUILDKIT_NIX_EXTRA_CONFIG", nixExtraConfigStr),
 			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-			withInternalNameW("configure default nix.conf"),
+			withInternalNameW("configure nix.conf"),
 			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-		)
-		if nixExtraConfigStr != "" {
-			configure = configure.
-				File(
-					llb.Mkfile("/etc/nix/nix.build-args.conf", 0644, []byte(nixExtraConfigStr)),
-					withInternalNameW("load nix config from build args"),
-					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-				).
-				Run(
-					nixllb.Shlex("cat /etc/nix/nix.build-args.conf | tee -a /etc/nix/nix.conf"),
-					withInternalNameW("inject nix config from build args into /etc/nix/nix.conf"),
-					nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-				)
-		}
-		configure = configure.Run(
-			llb.Shlex("nix config check"),
-			withInternalNameW("nix config check"),
-			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-		)
-		builder = configure.Root()
+		).Root()
 
 		// Nix build
 		builderSt := builder.Run(append([]llb.RunOption{
