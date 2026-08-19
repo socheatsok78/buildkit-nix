@@ -41,7 +41,6 @@ const (
 )
 
 const (
-	mountDockerfileDir      = "/mnt/dockerfile"
 	mountNixStoreCacheDir   = "/mnt/nix"
 	mountNixStoreClosureDir = "/nix-store-closure"
 	mountSourceDir          = "/mnt/source"
