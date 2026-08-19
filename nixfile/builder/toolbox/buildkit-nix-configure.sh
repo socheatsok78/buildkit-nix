@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BUILDKIT_NIX_STORE_CACHE_KEY=${BUILDKIT_NIX_STORE_CACHE_KEY:-}
-BUILDKIT_NIX_EXTRA_CONFIG=${BUILDKIT_NIX_EXTRA_CONFIG:-}
+BUILDKIT_NIX_USER_CONFIGS=${BUILDKIT_NIX_USER_CONFIGS:-}
 
 nix-config-get() {
 	nix --extra-experimental-features nix-command config show | grep "$1" | cut -d"=" -f2 | xargs
@@ -19,7 +19,7 @@ nix --version
 	echo "substituters = $(nix-config-get substituters)"
 	echo "trusted-public-keys = $(nix-config-get trusted-public-keys)"
 	echo "trusted-users = $(whoami)"
-	if [ -n "$BUILDKIT_NIX_EXTRA_CONFIG" ]; then echo "$BUILDKIT_NIX_EXTRA_CONFIG"; fi
+	if [ -n "$BUILDKIT_NIX_USER_CONFIGS" ]; then echo "$BUILDKIT_NIX_USER_CONFIGS"; fi
 } | tee /etc/nix/nix.conf | sort
 
 # This is a fake config for debugging purposes,

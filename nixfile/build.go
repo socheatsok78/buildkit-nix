@@ -16,7 +16,7 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/socheatsok78/buildkit-nix/nixfile/builder/toolbox"
+	"github.com/socheatsok78/buildkit-nix/nixfile/builder"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
@@ -89,9 +89,9 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			nixExtraConfigOpt[strings.TrimPrefix(k, keyNixConfArgPrefix)] = v
 		}
 	}
-	nixExtraConfigStr := ""
+	nixUserConfigsStr := ""
 	for k, v := range nixExtraConfigOpt {
-		nixExtraConfigStr += fmt.Sprintf("%s = %s\n", k, v)
+		nixUserConfigsStr += fmt.Sprintf("%s = %s\n", k, v)
 	}
 
 	// Load the nix option secrets from the build options, if provided
@@ -127,61 +127,27 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			withInternalNameW = nixui.WithInternalNameTag(fmt.Sprintf("%s/%s", p.OS, p.Architecture))
 		}
 
-		// Load the nix image and set it as the base image for the build
-		// Prefer local cache for the nix image, to avoid pulling it from the registry if it's already available
-		builder := llb.Image(
+		nixbld := builder.NewBuilder(
 			NixImage,
-			llb.ResolveModePreferLocal,
-			llb.Platform(p),
-			llb.ResolveDigest(true),
-			llb.WithExportCache(),
-			llb.WithMetaResolver(c),
-			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			withInternalNameW(fmt.Sprintf("load builder image from %s", NixImage)),
+			builder.ShouldIgnoreCache(bc.IsNoCache("builder")),
+			builder.ImageOptions(
+				llb.ResolveModePreferLocal,
+				llb.Platform(p),
+				llb.ResolveDigest(true),
+				llb.WithMetaResolver(c),
+				llb.WithExportCache(),
+				nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
+			),
+			builder.NixBuildSecrets(nixBuildSecretOpts...),
+			builder.NixStoreCacheKey(nixStoreCacheKey),
+			builder.NixUserConfigs(nixUserConfigsStr),
+			builder.SecurityMode(security),
 		)
 
-		// Install the buildkit-nix toolbox into the builder image
-		builder, err = toolbox.Install(builder, nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")))
-		if err != nil {
-			return nil, err
-		}
-
-		// Configure nix.conf
-		builder = builder.Run(
-			llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixStoreCacheKey),
-			llb.AddEnv("BUILDKIT_NIX_EXTRA_CONFIG", nixExtraConfigStr),
-			llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-			withInternalNameW("configure nix.conf"),
-			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-		).Root()
-
-		// Nix build
-		builderSt := builder.Run(append([]llb.RunOption{
-			llb.Security(security),
-
-			llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
-
-			llb.AddMount("/nix", builder, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixStoreCacheKey, llb.CacheMountLocked)),
-			llb.AddMount("/build", llb.Scratch()),
-			llb.AddMount(mountShelterDir, llb.Scratch()),
-			llb.AddMount(mountSourceDir, *mainContext),
-
-			llb.Dir(mountSourceDir),
-			llb.AddEnv("NIX_SHOW_STATS", "1"),
-			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, bc.Target),
-
-			// Special secret for GitHub token, which is used to access private repositories
-			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
-
-			nixllb.ShouldIgnoreCache(bc.IsNoCache("builder")),
-			withInternalNameW(fmt.Sprintf("nix build .#%s", bc.Target)),
-		}, nixBuildSecretOpts...)...)
-
-		// Re-assign the buildResult state to the result of the nix build, so that we can read the result type and extract the result from it
-		buildResult := builderSt.GetMount(mountShelterDir)
+		result := nixbld.Build(bc.Target, *mainContext)
 
 		// Marshal the shelter state to a definition and solve it to get a reference to the result of the nix build
-		buildResultDef, err := buildResult.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+		buildResultDef, err := result.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +177,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			}
 
 			nixStoreClosure := llb.Scratch().File(
-				llb.Copy(buildResult, "/result", "/", &llb.CopyInfo{CopyDirContentsOnly: true}),
+				llb.Copy(result, "/result", "/", &llb.CopyInfo{CopyDirContentsOnly: true}),
 				nixllb.ShouldIgnoreCache(bc.IsNoCache("extract")),
 				withInternalNameW("copying nix store closure..."),
 			)
@@ -219,7 +185,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 			st = nixStoreClosure
 		} else if resultType == "ocispec" {
 			nixStoreClosure := llb.Scratch().File(
-				llb.Copy(buildResult, "/result", "/", &llb.CopyInfo{AttemptUnpack: true}),
+				llb.Copy(result, "/result", "/", &llb.CopyInfo{AttemptUnpack: true}),
 				nixllb.ShouldIgnoreCache(bc.IsNoCache("extract")),
 				withInternalNameW("evaluating nix store closure"),
 			)
