@@ -45,7 +45,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 }
 
 func withInternalNameW(name string) llb.ConstraintsOpt {
-	return nixui.WithInternalName(name)
+	return nixui.WithInternalNameTag("builder")(name)
 }
 
 func mergeSlices[T any](slices ...[]T) []T {
