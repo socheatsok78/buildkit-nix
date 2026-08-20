@@ -12,7 +12,7 @@ import (
 
 	// Register the available plugins by importing their packages
 	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/derivation"
-	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/ocispec"
+	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/oci"
 )
 
 func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error) {

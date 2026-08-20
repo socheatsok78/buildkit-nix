@@ -1,4 +1,4 @@
-package ocispec
+package oci
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	plugins.RegisterPlugin("ocispec", &OCIExporterPlugin{})
+	plugins.RegisterPlugin("oci", &OCIExporterPlugin{})
 }
 
 var _ plugins.Plugin = &OCIExporterPlugin{}
@@ -89,5 +89,5 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 }
 
 func withInternalNameW(name string) llb.ConstraintsOpt {
-	return nixui.WithInternalNameTag("exporter/ocispec")(name)
+	return nixui.WithInternalNameTag("exporter/oci")(name)
 }

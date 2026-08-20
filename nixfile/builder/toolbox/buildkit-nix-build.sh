@@ -61,7 +61,7 @@ if [ -d "$(readlink -f result)" ]; then
 	cp -af $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result/nix/store"
 else
 	if tar -tf result | grep -q manifest.json; then
-		echo -n "ocispec" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
+		echo -n "oci" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
 		cp $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result"
 	else
 		echo "ERROR: nix build did not produce a valid result"
