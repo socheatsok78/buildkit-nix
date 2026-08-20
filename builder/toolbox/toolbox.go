@@ -62,14 +62,14 @@ func (f toolboxOptionFunc) SetToolboxOptions(cfg ToolboxInfo) {
 	f(&cfg)
 }
 
-func ShouldIgnoreCache(ignoreCache bool) toolboxOptionFunc {
-	return func(cfg *ToolboxInfo) {
+func ShouldIgnoreCache(ignoreCache bool) ToolboxOptions {
+	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
 		cfg.IgnoreCache = ignoreCache
-	}
+	})
 }
 
-func MultiPlatformRequested(requested bool) toolboxOptionFunc {
-	return func(cfg *ToolboxInfo) {
+func MultiPlatformRequested(requested bool) ToolboxOptions {
+	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
 		cfg.MultiPlatformRequested = requested
-	}
+	})
 }
