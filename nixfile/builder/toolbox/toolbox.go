@@ -24,9 +24,13 @@ func Install(st llb.State, opts ...llb.ConstraintsOpt) (llb.State, error) {
 		dt, _ := toolbox.ReadFile(entry.Name())
 		filepath := "/etc/nix/" + entry.Name()
 		st = st.File(llb.Mkfile(filepath, 0755, dt), append([]llb.ConstraintsOpt{
-			nixui.WithInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath)),
+			withInternalNameW(fmt.Sprintf("copying path '%s' from toolbox...", filepath)),
 		}, opts...)...)
 	}
 
 	return st, nil
+}
+
+func withInternalNameW(name string) llb.ConstraintsOpt {
+	return nixui.WithInternalNameTag("builder")(name)
 }
