@@ -1,4 +1,4 @@
-package exptypes
+package export
 
 import (
 	"github.com/moby/buildkit/client/llb"
