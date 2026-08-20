@@ -13,7 +13,13 @@ import (
 var toolbox embed.FS
 
 // Install copy the buildkit-nix scripts into the given llb.State.
-func Install(st llb.State, opts ...llb.ConstraintsOpt) (llb.State, error) {
+func Install(st llb.State, opts ...ToolboxOptions) (llb.State, error) {
+	var cfg ToolboxInfo
+	for _, opt := range opts {
+		opt.SetToolboxOptions(cfg)
+	}
+
+	// Copy the buildkit-nix scripts from the embedded filesystem into the llb.State
 	entries, err := toolbox.ReadDir(".")
 	if err != nil {
 		return st, err
@@ -24,15 +30,46 @@ func Install(st llb.State, opts ...llb.ConstraintsOpt) (llb.State, error) {
 		}
 		dt, _ := toolbox.ReadFile(entry.Name())
 		filepath := "/etc/nix/" + entry.Name()
-		st = st.File(llb.Mkfile(filepath, 0755, dt), append([]llb.ConstraintsOpt{
-			withInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath)),
-		}, opts...)...)
+		st = st.File(
+			llb.Mkfile(filepath, 0755, dt),
+			withInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath), cfg.MultiPlatformRequested),
+		)
 	}
 
 	return st, nil
 }
 
-func withInternalName(name string) llb.ConstraintsOpt {
-	p := platforms.DefaultSpec()
-	return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
+func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
+	if multiPlatformRequested {
+		p := platforms.DefaultSpec()
+		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
+	}
+	return nixui.WithInternalNameTag("builder")(name)
+}
+
+type ToolboxInfo struct {
+	IgnoreCache            bool
+	MultiPlatformRequested bool
+}
+
+type ToolboxOptions interface {
+	SetToolboxOptions(cfg ToolboxInfo)
+}
+
+type toolboxOptionFunc func(cfg *ToolboxInfo)
+
+func (f toolboxOptionFunc) SetToolboxOptions(cfg ToolboxInfo) {
+	f(&cfg)
+}
+
+func ShouldIgnoreCache(ignoreCache bool) toolboxOptionFunc {
+	return func(cfg *ToolboxInfo) {
+		cfg.IgnoreCache = ignoreCache
+	}
+}
+
+func MultiPlatformRequested(requested bool) toolboxOptionFunc {
+	return func(cfg *ToolboxInfo) {
+		cfg.MultiPlatformRequested = requested
+	}
 }

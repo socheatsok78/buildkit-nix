@@ -16,19 +16,21 @@ type Builder struct {
 	llb.State
 	IgnoreCache bool
 
-	NixBuildSecrets  []llb.RunOption
-	NixImageOpts     []llb.ImageOption
-	NixSecurityMode  pb.SecurityMode
-	NixStoreCacheKey string
-	NixUserConfigs   string
+	NixBuildSecrets           []llb.RunOption
+	NixImageOpts              []llb.ImageOption
+	NixMultiPlatformRequested bool
+	NixSecurityMode           pb.SecurityMode
+	NixStoreCacheKey          string
+	NixUserConfigs            string
 }
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 	nixbld := &Builder{
-		IgnoreCache:      true,
-		NixStoreCacheKey: ref,
-		NixUserConfigs:   "",
-		NixSecurityMode:  llb.SecurityModeSandbox,
+		IgnoreCache:               true,
+		NixMultiPlatformRequested: false,
+		NixSecurityMode:           llb.SecurityModeSandbox,
+		NixStoreCacheKey:          ref,
+		NixUserConfigs:            "",
 	}
 	for _, opt := range opts {
 		opt.SetBuilderOption(nixbld)
@@ -56,6 +58,12 @@ func ShouldIgnoreCache(ignore bool) BuilderOption {
 func ImageOptions(opts ...llb.ImageOption) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
 		b.NixImageOpts = append(b.NixImageOpts, opts...)
+	})
+}
+
+func MultiPlatformRequested(requested bool) BuilderOption {
+	return buildOptionFunc(func(b *Builder) {
+		b.NixMultiPlatformRequested = requested
 	})
 }
 

@@ -117,6 +117,7 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 				llb.ResolveDigest(true),
 				llb.WithMetaResolver(c),
 			),
+			builder.MultiPlatformRequested(bc.MultiPlatformRequested),
 			builder.NixBuildSecrets(nixBuildSecretOpts...),
 			builder.NixStoreCacheKey(nixStoreCacheKey),
 			builder.NixUserConfigs(nixUserConfigsStr),
