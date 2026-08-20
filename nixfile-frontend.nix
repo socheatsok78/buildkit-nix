@@ -10,7 +10,7 @@ buildGoModule (finalAttrs: {
   src = ./.;
 
   subPackages = [
-    "cmd/nixfile-frontend"
+    "nixfile/cmd/nixfile-frontend"
   ];
 
   vendorHash = "sha256-4doFp5UonyTpQlpMewEbaJXy9m94NAlQDVTH7YnBpvA=";

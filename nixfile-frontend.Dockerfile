@@ -7,7 +7,7 @@ ENV CGO_ENABLED=0
 ARG TARGETOS
 ARG TARGETARCH
 RUN --mount=target=. --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/nixfile-frontend ./cmd/nixfile-frontend
+	GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/nixfile-frontend ./nixfile/cmd/nixfile-frontend
 
 FROM scratch
 COPY --from=build /out/ /

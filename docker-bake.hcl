@@ -27,7 +27,7 @@ target "dockerfile" {
         "nixfile-frontend",
     ]
     context = "."
-    dockerfile = "bootstrap.Dockerfile"
+    dockerfile = "nixfile-frontend.Dockerfile"
 }
 
 target "flakes" {
