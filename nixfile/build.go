@@ -21,27 +21,13 @@ import (
 )
 
 const (
-	buildArgPrefix      = "build-arg:"
-	keyLocalNameContext = "context"
-	keyTarget           = "target"
-	keySource           = "source"
-)
-
-const (
-	DefaultNixImage = "docker.io/nixos/nix:latest"
-
-	// build-args keys
+	DefaultNixImage        = "docker.io/nixos/nix:latest"
 	keyNixImage            = "image"
 	keyNixSecurityInsecure = "security.insecure"
 
 	// build-args prefixes
+	buildArgPrefix      = "build-arg:"
 	keyNixConfArgPrefix = buildArgPrefix + "nix.conf."
-)
-
-const (
-	mountNixStoreCacheDir = "/mnt/nix"
-	mountSourceDir        = "/mnt/source"
-	mountShelterDir       = "/shelter"
 )
 
 func Build(ctx context.Context, c client.Client) (*client.Result, error) {
