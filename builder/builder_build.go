@@ -17,7 +17,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
 		llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
 		withInternalName("configure nix.conf", nixbld.NixMultiPlatformRequested),
-		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
+		nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache),
 	).Root()
 
 	st = st.
@@ -38,7 +38,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
 			withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixMultiPlatformRequested),
-			nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
+			nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache),
 		).
 		GetMount(mountShelterDir)
 

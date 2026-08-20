@@ -15,9 +15,9 @@ const (
 
 type Builder struct {
 	llb.State
-	IgnoreCache bool
 
 	NixBuildSecrets           []llb.RunOption
+	NixIgnoreCache            bool
 	NixImageOpts              []llb.ImageOption
 	NixMultiPlatformRequested bool
 	NixSecurityMode           pb.SecurityMode
@@ -27,7 +27,7 @@ type Builder struct {
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 	nixbld := &Builder{
-		IgnoreCache:               false,
+		NixIgnoreCache:            false,
 		NixMultiPlatformRequested: false,
 		NixSecurityMode:           llb.SecurityModeSandbox,
 		NixStoreCacheKey:          ref,
@@ -37,12 +37,12 @@ func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 		opt.SetBuilderOption(nixbld)
 	}
 
-	st := llb.Image(ref, append(nixbld.NixImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
+	st := llb.Image(ref, append(nixbld.NixImageOpts, nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache))...)
 
 	st = toolbox.Install(
 		st,
 		toolbox.MultiPlatformRequested(nixbld.NixMultiPlatformRequested),
-		toolbox.ShouldIgnoreCache(nixbld.IgnoreCache),
+		toolbox.ShouldIgnoreCache(nixbld.NixIgnoreCache),
 	)
 
 	nixbld.State = st
@@ -60,9 +60,15 @@ func (f buildOptionFunc) SetBuilderOption(b *Builder) {
 	f(b)
 }
 
+func NixBuildSecrets(opts ...llb.RunOption) BuilderOption {
+	return buildOptionFunc(func(b *Builder) {
+		b.NixBuildSecrets = append(b.NixBuildSecrets, opts...)
+	})
+}
+
 func ShouldIgnoreCache(ignore bool) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
-		b.IgnoreCache = ignore
+		b.NixIgnoreCache = ignore
 	})
 }
 
@@ -75,12 +81,6 @@ func ImageOptions(opts ...llb.ImageOption) BuilderOption {
 func MultiPlatformRequested(requested bool) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
 		b.NixMultiPlatformRequested = requested
-	})
-}
-
-func NixBuildSecrets(opts ...llb.RunOption) BuilderOption {
-	return buildOptionFunc(func(b *Builder) {
-		b.NixBuildSecrets = append(b.NixBuildSecrets, opts...)
 	})
 }
 
