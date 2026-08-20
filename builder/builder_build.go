@@ -59,15 +59,3 @@ func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsO
 	}
 	return nixui.WithInternalNameTag("builder")(name)
 }
-
-func mergeSlices[T any](slices ...[]T) []T {
-	totalLength := 0
-	for _, s := range slices {
-		totalLength += len(s)
-	}
-	result := make([]T, 0, totalLength)
-	for _, s := range slices {
-		result = append(result, s...)
-	}
-	return result
-}
