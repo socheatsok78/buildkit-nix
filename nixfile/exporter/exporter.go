@@ -9,6 +9,10 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins"
 	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/types"
+
+	// Register the available plugins by importing their packages
+	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/derivation"
+	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/ocispec"
 )
 
 func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error) {
