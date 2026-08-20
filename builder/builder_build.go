@@ -3,6 +3,7 @@ package builder
 import (
 	"fmt"
 
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
@@ -16,7 +17,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),
 		llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
 		llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-		withInternalNameW("configure nix.conf"),
+		withInternalName("configure nix.conf"),
 		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
 	).Root()
 
@@ -37,15 +38,16 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		// Special secret for GitHub token, which is used to access private repositories
 		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
-		withInternalNameW(fmt.Sprintf("nix build .#%s", target)),
+		withInternalName(fmt.Sprintf("nix build .#%s", target)),
 		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
 	).GetMount(mountShelterDir)
 
 	return nixbld.State
 }
 
-func withInternalNameW(name string) llb.ConstraintsOpt {
-	return nixui.WithInternalNameTag("builder")(name)
+func withInternalName(name string) llb.ConstraintsOpt {
+	p := platforms.DefaultSpec()
+	return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 }
 
 func mergeSlices[T any](slices ...[]T) []T {

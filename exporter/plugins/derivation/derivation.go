@@ -2,7 +2,9 @@ package derivation
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
@@ -25,7 +27,7 @@ func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, 
 	nixStoreClosure := llb.Scratch().File(
 		llb.Copy(cfg.State, "/result", "/", &llb.CopyInfo{CopyDirContentsOnly: true}),
 		nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-		withInternalNameW("copying nix store closure..."),
+		withInternalName("copying nix store closure..."),
 	)
 
 	result := types.ExportResult{
@@ -38,6 +40,7 @@ func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, 
 	return result, nil
 }
 
-func withInternalNameW(name string) llb.ConstraintsOpt {
-	return nixui.WithInternalNameTag("exporter/derivation")(name)
+func withInternalName(name string) llb.ConstraintsOpt {
+	p := platforms.DefaultSpec()
+	return nixui.WithInternalNameTag(fmt.Sprintf("exporter %s/%s", p.OS, p.Architecture))(name)
 }

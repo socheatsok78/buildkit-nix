@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
@@ -27,7 +28,7 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 	nixStoreClosure := llb.Scratch().File(
 		llb.Copy(cfg.State, "/result", "/", &llb.CopyInfo{AttemptUnpack: true}),
 		nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-		withInternalNameW("evaluating nix store closure"),
+		withInternalName("evaluating nix store closure"),
 	)
 
 	def, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
@@ -64,7 +65,7 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 		layered = layered.File(
 			llb.Copy(nixStoreClosure, layer, "/", &llb.CopyInfo{AttemptUnpack: true}),
 			nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-			withInternalNameW(fmt.Sprintf("copying layer '%s'...", layer)),
+			withInternalName(fmt.Sprintf("copying layer '%s'...", layer)),
 		)
 	}
 
@@ -87,7 +88,7 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 
 	return result, nil
 }
-
-func withInternalNameW(name string) llb.ConstraintsOpt {
-	return nixui.WithInternalNameTag("exporter/oci")(name)
+func withInternalName(name string) llb.ConstraintsOpt {
+	p := platforms.DefaultSpec()
+	return nixui.WithInternalNameTag(fmt.Sprintf("exporter %s/%s", p.OS, p.Architecture))(name)
 }
