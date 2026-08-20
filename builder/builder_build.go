@@ -22,7 +22,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 	).Root()
 
 	nixbld.State = nixbld.State.Run(
-		llb.Security(nixbld.SecurityMode),
+		llb.Security(nixbld.NixSecurityMode),
 
 		llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
 

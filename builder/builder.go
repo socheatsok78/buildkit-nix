@@ -14,12 +14,13 @@ const (
 
 type Builder struct {
 	llb.State
-	IgnoreCache      bool
-	ImageOpts        []llb.ImageOption
+	IgnoreCache bool
+
 	NixBuildSecrets  []llb.RunOption
+	NixImageOpts     []llb.ImageOption
+	NixSecurityMode  pb.SecurityMode
 	NixStoreCacheKey string
 	NixUserConfigs   string
-	SecurityMode     pb.SecurityMode
 }
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
@@ -27,12 +28,12 @@ func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 		IgnoreCache:      true,
 		NixStoreCacheKey: ref,
 		NixUserConfigs:   "",
-		SecurityMode:     llb.SecurityModeSandbox,
+		NixSecurityMode:  llb.SecurityModeSandbox,
 	}
 	for _, opt := range opts {
 		opt.SetBuilderOption(nixbld)
 	}
-	nixbld.State = llb.Image(ref, append(nixbld.ImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
+	nixbld.State = llb.Image(ref, append(nixbld.NixImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
 	return nixbld
 }
 
@@ -54,7 +55,7 @@ func ShouldIgnoreCache(ignore bool) BuilderOption {
 
 func ImageOptions(opts ...llb.ImageOption) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
-		b.ImageOpts = append(b.ImageOpts, opts...)
+		b.NixImageOpts = append(b.NixImageOpts, opts...)
 	})
 }
 
@@ -78,6 +79,6 @@ func NixUserConfigs(configs string) BuilderOption {
 
 func SecurityMode(mode pb.SecurityMode) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
-		b.SecurityMode = mode
+		b.NixSecurityMode = mode
 	})
 }
