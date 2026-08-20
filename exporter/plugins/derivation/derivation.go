@@ -41,7 +41,7 @@ func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, 
 
 func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bool) llb.ConstraintsOpt {
 	if multiPlatformRequested {
-		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
+		return nixui.WithInternalNameTag(fmt.Sprintf("exporter %s/%s", p.OS, p.Architecture))(name)
 	}
 	return nixui.WithInternalNameTag("exporter")(name)
 }
