@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/moby/buildkit/client/llb"
-	"github.com/socheatsok78/buildkit-nix/nixfile/builder/toolbox"
+	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )

@@ -7,12 +7,12 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/types"
+	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
+	"github.com/socheatsok78/buildkit-nix/exporter/types"
 
 	// Register the available plugins by importing their packages
-	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/derivation"
-	_ "github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins/oci"
+	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/derivation"
+	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/oci"
 )
 
 func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error) {

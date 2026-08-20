@@ -7,8 +7,8 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/plugins"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/types"
+	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
+	"github.com/socheatsok78/buildkit-nix/exporter/types"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )

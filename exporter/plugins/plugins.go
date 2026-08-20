@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/types"
+	"github.com/socheatsok78/buildkit-nix/exporter/types"
 )
 
 var registeredPlugins = make(map[string]Plugin)

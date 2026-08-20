@@ -14,9 +14,9 @@ import (
 	"github.com/moby/buildkit/frontend/dockerui"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/socheatsok78/buildkit-nix/nixfile/builder"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter"
-	"github.com/socheatsok78/buildkit-nix/nixfile/exporter/types"
+	"github.com/socheatsok78/buildkit-nix/builder"
+	"github.com/socheatsok78/buildkit-nix/exporter"
+	"github.com/socheatsok78/buildkit-nix/exporter/types"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
 
