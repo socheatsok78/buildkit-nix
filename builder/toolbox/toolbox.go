@@ -4,8 +4,8 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
@@ -29,16 +29,15 @@ func Install(st llb.State, opts ...ToolboxOptions) llb.State {
 		filepath := "/etc/nix/" + entry.Name()
 		st = st.File(
 			llb.Mkfile(filepath, 0755, dt),
-			withInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath), cfg.MultiPlatformRequested),
+			withInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath), cfg.Platform, cfg.MultiPlatformRequested),
 		)
 	}
 
 	return st
 }
 
-func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
+func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bool) llb.ConstraintsOpt {
 	if multiPlatformRequested {
-		p := platforms.DefaultSpec()
 		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 	}
 	return nixui.WithInternalNameTag("builder")(name)
@@ -47,6 +46,7 @@ func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsO
 type ToolboxInfo struct {
 	IgnoreCache            bool
 	MultiPlatformRequested bool
+	Platform               ocispec.Platform
 }
 
 type ToolboxOptions interface {
@@ -68,5 +68,11 @@ func ShouldIgnoreCache(ignore bool) ToolboxOptions {
 func MultiPlatformRequested(requested bool) ToolboxOptions {
 	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
 		cfg.MultiPlatformRequested = requested
+	})
+}
+
+func Platform(platform ocispec.Platform) ToolboxOptions {
+	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
+		cfg.Platform = platform
 	})
 }

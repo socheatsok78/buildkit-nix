@@ -109,18 +109,18 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		// Create a new nix builder with the specified nix image, security mode, and build options
 		nixbld := builder.NewBuilder(
 			NixImage,
-			builder.ShouldIgnoreCache(bc.IsNoCache("builder")),
+			builder.NixBuildSecrets(nixBuildSecretOpts...),
+			builder.NixBuildTargetPlatform(p),
+			builder.NixShouldIgnoreCache(bc.IsNoCache("builder")),
 			builder.ImageOptions(
 				llb.ResolveModePreferLocal,
-				llb.Platform(p),
 				llb.ResolveDigest(true),
 				llb.WithMetaResolver(c),
 			),
-			builder.MultiPlatformRequested(bc.MultiPlatformRequested),
-			builder.NixBuildSecrets(nixBuildSecretOpts...),
+			builder.NixMultiPlatformRequested(bc.MultiPlatformRequested),
+			builder.NixSecurityMode(security),
 			builder.NixStoreCacheKey(nixStoreCacheKey),
 			builder.NixUserConfigs(nixUserConfigsStr),
-			builder.SecurityMode(security),
 		)
 
 		// Build the nix derivation for the specified target using the source code from the build context

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/exporter/export"
 	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
 	"github.com/socheatsok78/buildkit-nix/pkg/dockershim"
@@ -28,7 +28,7 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exp
 	nixStoreClosure := llb.Scratch().File(
 		llb.Copy(cfg.State, "/result", "/", &llb.CopyInfo{AttemptUnpack: true}),
 		nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-		withInternalName("evaluating nix store closure", cfg.MultiPlatformRequested),
+		withInternalName("evaluating nix store closure", cfg.Platform, cfg.MultiPlatformRequested),
 	)
 
 	def, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
@@ -65,7 +65,7 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exp
 		layered = layered.File(
 			llb.Copy(nixStoreClosure, layer, "/", &llb.CopyInfo{AttemptUnpack: true}),
 			nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-			withInternalName(fmt.Sprintf("copying layer '%s'...", layer), cfg.MultiPlatformRequested),
+			withInternalName(fmt.Sprintf("copying layer '%s'...", layer), cfg.Platform, cfg.MultiPlatformRequested),
 		)
 	}
 
@@ -89,9 +89,8 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exp
 	return result, nil
 }
 
-func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
+func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bool) llb.ConstraintsOpt {
 	if multiPlatformRequested {
-		p := platforms.DefaultSpec()
 		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 	}
 	return nixui.WithInternalNameTag("exporter")(name)

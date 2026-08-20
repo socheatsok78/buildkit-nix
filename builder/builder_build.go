@@ -3,8 +3,8 @@ package builder
 import (
 	"fmt"
 
-	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
@@ -16,7 +16,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),
 		llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
 		llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
-		withInternalName("configure nix.conf", nixbld.NixMultiPlatformRequested),
+		withInternalName("configure nix.conf", nixbld.NixBuildTargetPlatform, nixbld.NixMultiPlatformRequested),
 		nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache),
 	).Root()
 
@@ -37,7 +37,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 			// Special secret for GitHub token, which is used to access private repositories
 			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
-			withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixMultiPlatformRequested),
+			withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixBuildTargetPlatform, nixbld.NixMultiPlatformRequested),
 			nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache),
 		).
 		GetMount(mountShelterDir)
@@ -45,9 +45,8 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 	return st
 }
 
-func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
+func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bool) llb.ConstraintsOpt {
 	if multiPlatformRequested {
-		p := platforms.DefaultSpec()
 		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 	}
 	return nixui.WithInternalNameTag("builder")(name)

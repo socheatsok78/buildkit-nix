@@ -1,8 +1,10 @@
 package builder
 
 import (
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/solver/pb"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
@@ -17,6 +19,7 @@ type Builder struct {
 	llb.State
 
 	NixBuildSecrets           []llb.RunOption
+	NixBuildTargetPlatform    ocispec.Platform
 	NixIgnoreCache            bool
 	NixImageOpts              []llb.ImageOption
 	NixMultiPlatformRequested bool
@@ -27,6 +30,7 @@ type Builder struct {
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 	nixbld := &Builder{
+		NixBuildTargetPlatform:    platforms.DefaultSpec(),
 		NixIgnoreCache:            false,
 		NixMultiPlatformRequested: false,
 		NixSecurityMode:           llb.SecurityModeSandbox,
@@ -43,6 +47,7 @@ func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 		st,
 		toolbox.MultiPlatformRequested(nixbld.NixMultiPlatformRequested),
 		toolbox.ShouldIgnoreCache(nixbld.NixIgnoreCache),
+		toolbox.Platform(nixbld.NixBuildTargetPlatform),
 	)
 
 	nixbld.State = st
@@ -66,7 +71,14 @@ func NixBuildSecrets(opts ...llb.RunOption) BuilderOption {
 	})
 }
 
-func ShouldIgnoreCache(ignore bool) BuilderOption {
+func NixBuildTargetPlatform(platform ocispec.Platform) BuilderOption {
+	return buildOptionFunc(func(b *Builder) {
+		b.NixBuildTargetPlatform = platform
+		b.NixImageOpts = append(b.NixImageOpts, llb.Platform(platform))
+	})
+}
+
+func NixShouldIgnoreCache(ignore bool) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
 		b.NixIgnoreCache = ignore
 	})
@@ -78,7 +90,7 @@ func ImageOptions(opts ...llb.ImageOption) BuilderOption {
 	})
 }
 
-func MultiPlatformRequested(requested bool) BuilderOption {
+func NixMultiPlatformRequested(requested bool) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
 		b.NixMultiPlatformRequested = requested
 	})
@@ -96,7 +108,7 @@ func NixUserConfigs(configs string) BuilderOption {
 	})
 }
 
-func SecurityMode(mode pb.SecurityMode) BuilderOption {
+func NixSecurityMode(mode pb.SecurityMode) BuilderOption {
 	return buildOptionFunc(func(b *Builder) {
 		b.NixSecurityMode = mode
 	})
