@@ -99,5 +99,5 @@ func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsO
 		p := platforms.DefaultSpec()
 		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 	}
-	return nixui.WithInternalNameTag("builder")(name)
+	return nixui.WithInternalNameTag("exporter")(name)
 }
