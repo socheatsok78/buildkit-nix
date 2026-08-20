@@ -5,19 +5,12 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
 func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 	st := nixbld.State
-
-	st, _ = toolbox.Install(
-		st,
-		toolbox.MultiPlatformRequested(nixbld.NixMultiPlatformRequested),
-		toolbox.ShouldIgnoreCache(nixbld.IgnoreCache),
-	)
 
 	st = st.Run(
 		llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),

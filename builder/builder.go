@@ -3,6 +3,7 @@ package builder
 import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/solver/pb"
+	"github.com/socheatsok78/buildkit-nix/builder/toolbox"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
 
@@ -35,7 +36,17 @@ func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 	for _, opt := range opts {
 		opt.SetBuilderOption(nixbld)
 	}
-	nixbld.State = llb.Image(ref, append(nixbld.NixImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
+
+	st := llb.Image(ref, append(nixbld.NixImageOpts, nixllb.ShouldIgnoreCache(nixbld.IgnoreCache))...)
+
+	st = toolbox.Install(
+		st,
+		toolbox.MultiPlatformRequested(nixbld.NixMultiPlatformRequested),
+		toolbox.ShouldIgnoreCache(nixbld.IgnoreCache),
+	)
+
+	nixbld.State = st
+
 	return nixbld
 }
 

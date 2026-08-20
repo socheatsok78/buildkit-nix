@@ -13,17 +13,14 @@ import (
 var toolbox embed.FS
 
 // Install copy the buildkit-nix scripts into the given llb.State.
-func Install(st llb.State, opts ...ToolboxOptions) (llb.State, error) {
+func Install(st llb.State, opts ...ToolboxOptions) llb.State {
 	var cfg ToolboxInfo
 	for _, opt := range opts {
 		opt.SetToolboxOptions(cfg)
 	}
 
 	// Copy the buildkit-nix scripts from the embedded filesystem into the llb.State
-	entries, err := toolbox.ReadDir(".")
-	if err != nil {
-		return st, err
-	}
+	entries, _ := toolbox.ReadDir(".")
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -36,7 +33,7 @@ func Install(st llb.State, opts ...ToolboxOptions) (llb.State, error) {
 		)
 	}
 
-	return st, nil
+	return st
 }
 
 func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
