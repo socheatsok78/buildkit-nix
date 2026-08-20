@@ -26,7 +26,7 @@ type Builder struct {
 
 func NewBuilder(ref string, opts ...BuilderOption) *Builder {
 	nixbld := &Builder{
-		IgnoreCache:               true,
+		IgnoreCache:               false,
 		NixMultiPlatformRequested: false,
 		NixSecurityMode:           llb.SecurityModeSandbox,
 		NixStoreCacheKey:          ref,
