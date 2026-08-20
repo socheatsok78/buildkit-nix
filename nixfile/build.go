@@ -24,9 +24,10 @@ const (
 	DefaultNixImage        = "docker.io/nixos/nix:latest"
 	keyNixImage            = "image"
 	keyNixSecurityInsecure = "security.insecure"
+	buildArgPrefix         = "build-arg:"
+)
 
-	// build-args prefixes
-	buildArgPrefix      = "build-arg:"
+const (
 	keyNixConfArgPrefix = buildArgPrefix + "nix.conf."
 )
 
