@@ -64,8 +64,8 @@ else
 		echo -n "oci" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
 		cp $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result"
 	else
-		echo "ERROR: nix build did not produce a valid result"
-		exit 1
+		echo -n "shelter" > "${BUILDKIT_NIX_SHELTER_DIR}/type"
+		cp $(nix-store -qR result/) "${BUILDKIT_NIX_SHELTER_DIR}/result"
 	fi
 fi
 
