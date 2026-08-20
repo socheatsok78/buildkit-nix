@@ -14,7 +14,7 @@ var toolbox embed.FS
 
 // Install copy the buildkit-nix scripts into the given llb.State.
 func Install(st llb.State, opts ...ToolboxOptions) llb.State {
-	var cfg ToolboxInfo
+	var cfg ToolboxConfig
 	for _, opt := range opts {
 		opt.SetToolboxOptions(&cfg)
 	}
@@ -43,36 +43,36 @@ func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bo
 	return nixui.WithInternalNameTag("builder")(name)
 }
 
-type ToolboxInfo struct {
+type ToolboxConfig struct {
 	IgnoreCache            bool
 	MultiPlatformRequested bool
 	Platform               ocispec.Platform
 }
 
 type ToolboxOptions interface {
-	SetToolboxOptions(cfg *ToolboxInfo)
+	SetToolboxOptions(cfg *ToolboxConfig)
 }
 
-type toolboxOptionFunc func(cfg *ToolboxInfo)
+type toolboxOptionFunc func(cfg *ToolboxConfig)
 
-func (f toolboxOptionFunc) SetToolboxOptions(cfg *ToolboxInfo) {
-	f(cfg)
+func (fn toolboxOptionFunc) SetToolboxOptions(cfg *ToolboxConfig) {
+	fn(cfg)
 }
 
 func ShouldIgnoreCache(ignore bool) ToolboxOptions {
-	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
+	return toolboxOptionFunc(func(cfg *ToolboxConfig) {
 		cfg.IgnoreCache = ignore
 	})
 }
 
 func MultiPlatformRequested(requested bool) ToolboxOptions {
-	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
+	return toolboxOptionFunc(func(cfg *ToolboxConfig) {
 		cfg.MultiPlatformRequested = requested
 	})
 }
 
 func Platform(platform ocispec.Platform) ToolboxOptions {
-	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
+	return toolboxOptionFunc(func(cfg *ToolboxConfig) {
 		cfg.Platform = platform
 	})
 }

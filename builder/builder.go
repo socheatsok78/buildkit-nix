@@ -61,8 +61,8 @@ type BuilderOption interface {
 
 type buildOptionFunc func(*Builder)
 
-func (f buildOptionFunc) SetBuilderOption(b *Builder) {
-	f(b)
+func (fn buildOptionFunc) SetBuilderOption(b *Builder) {
+	fn(b)
 }
 
 func NixBuildSecrets(opts ...llb.RunOption) BuilderOption {

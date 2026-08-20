@@ -27,6 +27,6 @@ type ExportOption interface {
 
 type ExporterOptionFunc func(info *ExportConfig)
 
-func (f ExporterOptionFunc) SetExporterOption(info *ExportConfig) {
-	f(info)
+func (fn ExporterOptionFunc) SetExporterOption(info *ExportConfig) {
+	fn(info)
 }
