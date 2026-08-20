@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/socheatsok78/buildkit-nix/exporter/types"
+	"github.com/socheatsok78/buildkit-nix/exporter/exptypes"
 )
 
 var registeredPlugins = make(map[string]Plugin)
 
 type Plugin interface {
-	Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error)
+	Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error)
 }
 
 func RegisterPlugin(name string, plugin Plugin) {

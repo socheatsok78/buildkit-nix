@@ -1,4 +1,4 @@
-package types
+package exptypes
 
 import (
 	"github.com/moby/buildkit/client/llb"
@@ -10,11 +10,25 @@ import (
 type ExportConfig struct {
 	State        llb.State
 	Platform     ocispec.Platform
-	IgnoreCache  bool
 	CacheImports []client.CacheOptionsEntry
 }
 
 type ExportResult struct {
 	llb.State
 	DockerOCIImage dockerocispec.DockerOCIImage
+}
+
+type ExporterInfo struct {
+	IgnoreCache            bool
+	MultiPlatformRequested bool
+}
+
+type ExporterOption interface {
+	SetExporterOption(info ExporterInfo)
+}
+
+type ExporterOptionFunc func(info ExporterInfo)
+
+func (f ExporterOptionFunc) SetExporterOption(info ExporterInfo) {
+	f(info)
 }

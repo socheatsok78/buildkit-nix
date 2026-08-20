@@ -9,8 +9,8 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/client"
 	dockerocispec "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/socheatsok78/buildkit-nix/exporter/exptypes"
 	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
-	"github.com/socheatsok78/buildkit-nix/exporter/types"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
@@ -23,14 +23,19 @@ var _ plugins.Plugin = &DerivationExporterPlugin{}
 
 type DerivationExporterPlugin struct{}
 
-func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error) {
+func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error) {
+	var inf exptypes.ExporterInfo
+	for _, opt := range opts {
+		opt.SetExporterOption(inf)
+	}
+
 	nixStoreClosure := llb.Scratch().File(
 		llb.Copy(cfg.State, "/result", "/", &llb.CopyInfo{CopyDirContentsOnly: true}),
-		nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
-		withInternalName("copying nix store closure..."),
+		nixllb.ShouldIgnoreCache(inf.IgnoreCache),
+		withInternalName("copying nix store closure...", inf.MultiPlatformRequested),
 	)
 
-	result := types.ExportResult{
+	result := exptypes.ExportResult{
 		State: nixStoreClosure,
 		DockerOCIImage: dockerocispec.DockerOCIImage{
 			Image: ocispec.Image{Platform: cfg.Platform},
@@ -40,7 +45,10 @@ func (p *DerivationExporterPlugin) Export(ctx context.Context, c client.Client, 
 	return result, nil
 }
 
-func withInternalName(name string) llb.ConstraintsOpt {
-	p := platforms.DefaultSpec()
-	return nixui.WithInternalNameTag(fmt.Sprintf("exporter %s/%s", p.OS, p.Architecture))(name)
+func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
+	if multiPlatformRequested {
+		p := platforms.DefaultSpec()
+		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
+	}
+	return nixui.WithInternalNameTag("builder")(name)
 }

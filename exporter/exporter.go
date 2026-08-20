@@ -7,8 +7,8 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/socheatsok78/buildkit-nix/exporter/exptypes"
 	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
-	"github.com/socheatsok78/buildkit-nix/exporter/types"
 
 	// Register the available plugins by importing their packages
 	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/derivation"
@@ -16,10 +16,10 @@ import (
 	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/shelter"
 )
 
-func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types.ExportResult, error) {
+func Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error) {
 	def, err := cfg.State.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 	if err != nil {
-		return types.ExportResult{}, err
+		return exptypes.ExportResult{}, err
 	}
 
 	res, err := c.Solve(ctx, client.SolveRequest{
@@ -27,26 +27,38 @@ func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types
 		CacheImports: cfg.CacheImports,
 	})
 	if err != nil {
-		return types.ExportResult{}, err
+		return exptypes.ExportResult{}, err
 	}
 
 	ref, err := res.SingleRef()
 	if err != nil {
-		return types.ExportResult{}, err
+		return exptypes.ExportResult{}, err
 	}
 
 	resultTypeByte, err := ref.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
 	if err != nil {
-		return types.ExportResult{}, err
+		return exptypes.ExportResult{}, err
 	}
 	resultType := strings.TrimSpace(string(resultTypeByte))
 
 	// Use the result type to select the appropriate plugin for exporting
 	plugin, ok := plugins.GetPlugin(resultType)
 	if !ok {
-		return types.ExportResult{}, fmt.Errorf("no plugin found for result type: %s", resultType)
+		return exptypes.ExportResult{}, fmt.Errorf("no plugin found for result type: %s", resultType)
 	}
 
 	// Call the plugin's Export method to handle the export process
-	return plugin.Export(ctx, c, cfg)
+	return plugin.Export(ctx, c, cfg, opts...)
+}
+
+func ShouldIgnoreCache(ignoreCache bool) exptypes.ExporterOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExporterInfo) {
+		info.IgnoreCache = ignoreCache
+	})
+}
+
+func MultiPlatformRequested(multiPlatformRequested bool) exptypes.ExporterOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExporterInfo) {
+		info.MultiPlatformRequested = multiPlatformRequested
+	})
 }
