@@ -36,7 +36,6 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		llb.AddMount(mountSourceDir, source),
 
 		llb.Dir(mountSourceDir),
-		llb.AddEnv("NIX_SHOW_STATS", "1"),
 		llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, target),
 
 		// Special secret for GitHub token, which is used to access private repositories
