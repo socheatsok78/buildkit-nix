@@ -11,13 +11,15 @@ import (
 )
 
 func (nixbld *Builder) Build(target string, source llb.State) llb.State {
-	nixbld.State, _ = toolbox.Install(
-		nixbld.State,
+	st := nixbld.State
+
+	st, _ = toolbox.Install(
+		st,
 		toolbox.MultiPlatformRequested(nixbld.NixMultiPlatformRequested),
 		toolbox.ShouldIgnoreCache(nixbld.IgnoreCache),
 	)
 
-	nixbld.State = nixbld.State.Run(
+	st = st.Run(
 		llb.AddEnv("BUILDKIT_NIX_STORE_CACHE_KEY", nixbld.NixStoreCacheKey),
 		llb.AddEnv("BUILDKIT_NIX_USER_CONFIGS", nixbld.NixUserConfigs),
 		llb.Shlexf(`/etc/nix/buildkit-nix-configure.sh`),
@@ -25,27 +27,29 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
 	).Root()
 
-	nixbld.State = nixbld.State.Run(
-		llb.Security(nixbld.NixSecurityMode),
+	st = st.
+		Run(
+			llb.Security(nixbld.NixSecurityMode),
 
-		llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
+			llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
 
-		llb.AddMount("/nix", nixbld.State, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixbld.NixStoreCacheKey, llb.CacheMountLocked)),
-		llb.AddMount("/build", llb.Scratch()),
-		llb.AddMount(mountShelterDir, llb.Scratch()),
-		llb.AddMount(mountSourceDir, source),
+			llb.AddMount("/nix", st, llb.SourcePath("/nix"), llb.AsPersistentCacheDir(nixbld.NixStoreCacheKey, llb.CacheMountLocked)),
+			llb.AddMount("/build", llb.Scratch()),
+			llb.AddMount(mountShelterDir, llb.Scratch()),
+			llb.AddMount(mountSourceDir, source),
 
-		llb.Dir(mountSourceDir),
-		llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, target),
+			llb.Dir(mountSourceDir),
+			llb.Shlexf(`/etc/nix/buildkit-nix-build.sh ".#%s"`, target),
 
-		// Special secret for GitHub token, which is used to access private repositories
-		llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
+			// Special secret for GitHub token, which is used to access private repositories
+			llb.AddSecret("GITHUB_TOKEN", llb.SecretID("GITHUB_TOKEN"), llb.SecretAsEnv(true), llb.SecretOptional),
 
-		withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixMultiPlatformRequested),
-		nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
-	).GetMount(mountShelterDir)
+			withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixMultiPlatformRequested),
+			nixllb.ShouldIgnoreCache(nixbld.IgnoreCache),
+		).
+		GetMount(mountShelterDir)
 
-	return nixbld.State
+	return st
 }
 
 func withInternalName(name string, multiPlatformRequested bool) llb.ConstraintsOpt {
