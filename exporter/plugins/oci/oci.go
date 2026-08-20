@@ -24,16 +24,11 @@ var _ plugins.Plugin = &OCIExporterPlugin{}
 
 type OCIExporterPlugin struct{}
 
-func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error) {
-	var inf exptypes.ExporterInfo
-	for _, opt := range opts {
-		opt.SetExporterOption(inf)
-	}
-
+func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig) (exptypes.ExportResult, error) {
 	nixStoreClosure := llb.Scratch().File(
 		llb.Copy(cfg.State, "/result", "/", &llb.CopyInfo{AttemptUnpack: true}),
-		nixllb.ShouldIgnoreCache(inf.IgnoreCache),
-		withInternalName("evaluating nix store closure", inf.MultiPlatformRequested),
+		nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
+		withInternalName("evaluating nix store closure", cfg.MultiPlatformRequested),
 	)
 
 	def, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
@@ -69,8 +64,8 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg exp
 	for _, layer := range manifest.Layers {
 		layered = layered.File(
 			llb.Copy(nixStoreClosure, layer, "/", &llb.CopyInfo{AttemptUnpack: true}),
-			nixllb.ShouldIgnoreCache(inf.IgnoreCache),
-			withInternalName(fmt.Sprintf("copying layer '%s'...", layer), inf.MultiPlatformRequested),
+			nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
+			withInternalName(fmt.Sprintf("copying layer '%s'...", layer), cfg.MultiPlatformRequested),
 		)
 	}
 

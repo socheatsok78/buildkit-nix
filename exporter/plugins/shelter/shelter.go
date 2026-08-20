@@ -18,7 +18,7 @@ var _ plugins.Plugin = &ShelterExporterPlugin{}
 
 type ShelterExporterPlugin struct{}
 
-func (p *ShelterExporterPlugin) Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error) {
+func (p *ShelterExporterPlugin) Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig) (exptypes.ExportResult, error) {
 	result := exptypes.ExportResult{
 		State: cfg.State,
 		DockerOCIImage: dockerocispec.DockerOCIImage{

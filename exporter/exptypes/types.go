@@ -7,28 +7,26 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-type ExportConfig struct {
-	State        llb.State
-	Platform     ocispec.Platform
-	CacheImports []client.CacheOptionsEntry
-}
-
 type ExportResult struct {
 	llb.State
 	DockerOCIImage dockerocispec.DockerOCIImage
 }
 
-type ExporterInfo struct {
+type ExportConfig struct {
+	State llb.State
+
+	CacheImports           []client.CacheOptionsEntry
 	IgnoreCache            bool
 	MultiPlatformRequested bool
+	Platform               ocispec.Platform
 }
 
-type ExporterOption interface {
-	SetExporterOption(info ExporterInfo)
+type ExportOption interface {
+	SetExporterOption(info ExportConfig)
 }
 
-type ExporterOptionFunc func(info ExporterInfo)
+type ExporterOptionFunc func(info ExportConfig)
 
-func (f ExporterOptionFunc) SetExporterOption(info ExporterInfo) {
+func (f ExporterOptionFunc) SetExporterOption(info ExportConfig) {
 	f(info)
 }

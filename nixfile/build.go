@@ -16,7 +16,6 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/builder"
 	"github.com/socheatsok78/buildkit-nix/exporter"
-	"github.com/socheatsok78/buildkit-nix/exporter/exptypes"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 )
 
@@ -128,12 +127,10 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 		result := nixbld.Build(bc.Target, *mainContext)
 
 		// Export the result of the nix build
-		export, err := exporter.Export(ctx, c,
-			exptypes.ExportConfig{
-				State:    result,
-				Platform: p,
-			},
+		export, err := exporter.Export(ctx, c, result,
+			exporter.CacheImports(bc.CacheImports),
 			exporter.MultiPlatformRequested(bc.MultiPlatformRequested),
+			exporter.Platform(p),
 			exporter.ShouldIgnoreCache(bc.IsNoCache("exporter")),
 		)
 		if err != nil {

@@ -10,7 +10,7 @@ import (
 var registeredPlugins = make(map[string]Plugin)
 
 type Plugin interface {
-	Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error)
+	Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig) (exptypes.ExportResult, error)
 }
 
 func RegisterPlugin(name string, plugin Plugin) {

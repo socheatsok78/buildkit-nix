@@ -1,64 +1,31 @@
 package exporter
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
-	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/gateway/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/socheatsok78/buildkit-nix/exporter/exptypes"
-	"github.com/socheatsok78/buildkit-nix/exporter/plugins"
-
-	// Register the available plugins by importing their packages
-	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/derivation"
-	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/oci"
-	_ "github.com/socheatsok78/buildkit-nix/exporter/plugins/shelter"
 )
 
-func Export(ctx context.Context, c client.Client, cfg exptypes.ExportConfig, opts ...exptypes.ExporterOption) (exptypes.ExportResult, error) {
-	def, err := cfg.State.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
-	if err != nil {
-		return exptypes.ExportResult{}, err
-	}
-
-	res, err := c.Solve(ctx, client.SolveRequest{
-		Definition:   def.ToPB(),
-		CacheImports: cfg.CacheImports,
+func CacheImports(imports []client.CacheOptionsEntry) exptypes.ExportOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExportConfig) {
+		info.CacheImports = imports
 	})
-	if err != nil {
-		return exptypes.ExportResult{}, err
-	}
-
-	ref, err := res.SingleRef()
-	if err != nil {
-		return exptypes.ExportResult{}, err
-	}
-
-	resultTypeByte, err := ref.ReadFile(ctx, client.ReadRequest{Filename: "/type"})
-	if err != nil {
-		return exptypes.ExportResult{}, err
-	}
-	resultType := strings.TrimSpace(string(resultTypeByte))
-
-	// Use the result type to select the appropriate plugin for exporting
-	plugin, ok := plugins.GetPlugin(resultType)
-	if !ok {
-		return exptypes.ExportResult{}, fmt.Errorf("no plugin found for result type: %s", resultType)
-	}
-
-	// Call the plugin's Export method to handle the export process
-	return plugin.Export(ctx, c, cfg, opts...)
 }
 
-func ShouldIgnoreCache(ignoreCache bool) exptypes.ExporterOption {
-	return exptypes.ExporterOptionFunc(func(info exptypes.ExporterInfo) {
+func ShouldIgnoreCache(ignoreCache bool) exptypes.ExportOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExportConfig) {
 		info.IgnoreCache = ignoreCache
 	})
 }
 
-func MultiPlatformRequested(multiPlatformRequested bool) exptypes.ExporterOption {
-	return exptypes.ExporterOptionFunc(func(info exptypes.ExporterInfo) {
+func MultiPlatformRequested(multiPlatformRequested bool) exptypes.ExportOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExportConfig) {
 		info.MultiPlatformRequested = multiPlatformRequested
+	})
+}
+
+func Platform(p ocispec.Platform) exptypes.ExportOption {
+	return exptypes.ExporterOptionFunc(func(info exptypes.ExportConfig) {
+		info.Platform = p
 	})
 }
