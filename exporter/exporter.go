@@ -12,15 +12,15 @@ func CacheImports(imports []client.CacheOptionsEntry) export.ExportOption {
 	})
 }
 
-func ShouldIgnoreCache(ignoreCache bool) export.ExportOption {
+func ShouldIgnoreCache(ignore bool) export.ExportOption {
 	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
-		cfg.IgnoreCache = ignoreCache
+		cfg.IgnoreCache = ignore
 	})
 }
 
-func MultiPlatformRequested(multiPlatformRequested bool) export.ExportOption {
+func MultiPlatformRequested(requested bool) export.ExportOption {
 	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
-		cfg.MultiPlatformRequested = multiPlatformRequested
+		cfg.MultiPlatformRequested = requested
 	})
 }
 

@@ -62,9 +62,9 @@ func (f toolboxOptionFunc) SetToolboxOptions(cfg ToolboxInfo) {
 	f(&cfg)
 }
 
-func ShouldIgnoreCache(ignoreCache bool) ToolboxOptions {
+func ShouldIgnoreCache(ignore bool) ToolboxOptions {
 	return toolboxOptionFunc(func(cfg *ToolboxInfo) {
-		cfg.IgnoreCache = ignoreCache
+		cfg.IgnoreCache = ignore
 	})
 }
 
