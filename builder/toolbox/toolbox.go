@@ -6,6 +6,7 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/socheatsok78/buildkit-nix/pkg/nixllb"
 	"github.com/socheatsok78/buildkit-nix/pkg/nixui"
 )
 
@@ -29,6 +30,7 @@ func Install(st llb.State, opts ...ToolboxOptions) llb.State {
 		filepath := "/etc/nix/" + entry.Name()
 		st = st.File(
 			llb.Mkfile(filepath, 0755, dt),
+			nixllb.ShouldIgnoreCache(cfg.IgnoreCache),
 			withInternalName(fmt.Sprintf("copying path '%s' from toolbox...", filepath), cfg.Platform, cfg.MultiPlatformRequested),
 		)
 	}
