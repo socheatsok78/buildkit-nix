@@ -7,25 +7,25 @@ import (
 )
 
 func CacheImports(imports []client.CacheOptionsEntry) export.ExportOption {
-	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
+	return export.ExporterOptionFunc(func(cfg *export.ExportConfig) {
 		cfg.CacheImports = imports
 	})
 }
 
 func ShouldIgnoreCache(ignore bool) export.ExportOption {
-	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
+	return export.ExporterOptionFunc(func(cfg *export.ExportConfig) {
 		cfg.IgnoreCache = ignore
 	})
 }
 
 func MultiPlatformRequested(requested bool) export.ExportOption {
-	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
+	return export.ExporterOptionFunc(func(cfg *export.ExportConfig) {
 		cfg.MultiPlatformRequested = requested
 	})
 }
 
 func Platform(p ocispec.Platform) export.ExportOption {
-	return export.ExporterOptionFunc(func(cfg export.ExportConfig) {
+	return export.ExporterOptionFunc(func(cfg *export.ExportConfig) {
 		cfg.Platform = p
 	})
 }

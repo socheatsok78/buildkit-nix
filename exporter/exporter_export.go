@@ -19,7 +19,7 @@ import (
 func Export(ctx context.Context, c client.Client, st llb.State, opts ...export.ExportOption) (export.ExportResult, error) {
 	cfg := export.ExportConfig{State: st}
 	for _, opt := range opts {
-		opt.SetExporterOption(cfg)
+		opt.SetExporterOption(&cfg)
 	}
 
 	def, err := st.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))

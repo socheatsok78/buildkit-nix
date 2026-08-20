@@ -22,11 +22,11 @@ type ExportConfig struct {
 }
 
 type ExportOption interface {
-	SetExporterOption(info ExportConfig)
+	SetExporterOption(info *ExportConfig)
 }
 
-type ExporterOptionFunc func(info ExportConfig)
+type ExporterOptionFunc func(info *ExportConfig)
 
-func (f ExporterOptionFunc) SetExporterOption(info ExportConfig) {
+func (f ExporterOptionFunc) SetExporterOption(info *ExportConfig) {
 	f(info)
 }

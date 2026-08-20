@@ -16,7 +16,7 @@ var toolbox embed.FS
 func Install(st llb.State, opts ...ToolboxOptions) llb.State {
 	var cfg ToolboxInfo
 	for _, opt := range opts {
-		opt.SetToolboxOptions(cfg)
+		opt.SetToolboxOptions(&cfg)
 	}
 
 	// Copy the buildkit-nix scripts from the embedded filesystem into the llb.State
@@ -50,13 +50,13 @@ type ToolboxInfo struct {
 }
 
 type ToolboxOptions interface {
-	SetToolboxOptions(cfg ToolboxInfo)
+	SetToolboxOptions(cfg *ToolboxInfo)
 }
 
 type toolboxOptionFunc func(cfg *ToolboxInfo)
 
-func (f toolboxOptionFunc) SetToolboxOptions(cfg ToolboxInfo) {
-	f(&cfg)
+func (f toolboxOptionFunc) SetToolboxOptions(cfg *ToolboxInfo) {
+	f(cfg)
 }
 
 func ShouldIgnoreCache(ignore bool) ToolboxOptions {
