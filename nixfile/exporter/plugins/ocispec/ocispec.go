@@ -30,26 +30,26 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 		withInternalNameW("evaluating nix store closure"),
 	)
 
-	extractDef, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
+	def, err := nixStoreClosure.Marshal(ctx, llb.WithCaps(c.BuildOpts().LLBCaps))
 	if err != nil {
 		return types.ExportResult{}, err
 	}
 
 	res, err := c.Solve(ctx, client.SolveRequest{
-		Definition:   extractDef.ToPB(),
+		Definition:   def.ToPB(),
 		CacheImports: nil,
 	})
 	if err != nil {
 		return types.ExportResult{}, err
 	}
 
-	extractRef, err := res.SingleRef()
+	ref, err := res.SingleRef()
 	if err != nil {
 		return types.ExportResult{}, err
 	}
 
 	// Parse the manifest.json file to get the list of layers and the config file
-	manifestByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
+	manifestByte, err := ref.ReadFile(ctx, client.ReadRequest{Filename: "/manifest.json"})
 	if err != nil {
 		return types.ExportResult{}, fmt.Errorf("nix build did not produce a manifest.json file, please check the build logs for errors: %w", err)
 	}
@@ -69,14 +69,13 @@ func (p *OCIExporterPlugin) Export(ctx context.Context, c client.Client, cfg typ
 	}
 
 	// Read the config file from the result of the nix build and add it to the result metadata
-	configByte, err := extractRef.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
+	configByte, err := ref.ReadFile(ctx, client.ReadRequest{Filename: "/" + manifest.Config})
 	if err != nil {
 		return types.ExportResult{}, err
 	}
 
-	var config dockerocispec.DockerOCIImage
-
 	// Parse the oci config file to get the image configuration
+	var config dockerocispec.DockerOCIImage
 	if err := json.Unmarshal(configByte, &config); err != nil {
 		return types.ExportResult{}, err
 	}
