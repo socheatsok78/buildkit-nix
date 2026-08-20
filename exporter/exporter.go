@@ -23,7 +23,8 @@ func Export(ctx context.Context, c client.Client, cfg types.ExportConfig) (types
 	}
 
 	res, err := c.Solve(ctx, client.SolveRequest{
-		Definition: def.ToPB(),
+		Definition:   def.ToPB(),
+		CacheImports: cfg.CacheImports,
 	})
 	if err != nil {
 		return types.ExportResult{}, err
