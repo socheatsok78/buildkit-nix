@@ -42,9 +42,10 @@ func WithAccessTokenSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 
 func WithImpureEnvSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	return llb.AddSecret(
-		fmt.Sprintf("/run/impure-env/%s", dest),
-		llb.SecretID(dest),
+		dest,
 		AddSecretInfo(s),
+		llb.SecretID(dest),
+		llb.SecretAsEnv(true),
 	)
 }
 

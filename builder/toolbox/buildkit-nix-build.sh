@@ -34,14 +34,6 @@ for f in /run/access-tokens/*; do
 	fi
 done
 
-# Pass any impure environment variables from /run/impure-env to the nix build as options
-for f in /run/impure-env/*; do
-	if [ -f "$f" ]; then
-		echo "- Reading impure-env '$(basename "$f")' from secret..."
-		nixopts+=("--option" "impure-env" "$(basename "$f")=$(cat "$f")")
-	fi
-done
-
 echo -e "\nBuild log data will stream in below:"
 nix "${nixopts[@]}" build "$installable"
 if [ $? -ne 0 ]; then
