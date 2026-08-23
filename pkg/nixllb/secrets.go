@@ -15,7 +15,6 @@ func (fn secretOptionFunc) SetSecretOption(si *llb.SecretInfo) {
 func WithRunSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	return llb.AddSecret(
 		fmt.Sprintf("/run/secrets/%s", dest),
-		llb.SecretID(dest),
 		AddSecretInfo(s),
 	)
 }
@@ -23,7 +22,6 @@ func WithRunSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 func WithAccessTokenSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	return llb.AddSecret(
 		fmt.Sprintf("/run/access-tokens/%s", dest),
-		llb.SecretID(dest),
 		AddSecretInfo(s),
 	)
 }
@@ -31,7 +29,6 @@ func WithAccessTokenSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 func WithImpureEnvSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	return llb.AddSecret(
 		dest,
-		llb.SecretID(dest),
 		AddSecretInfo(s),
 		llb.SecretAsEnv(true),
 	)
