@@ -36,8 +36,8 @@ done
 
 echo -e "\nBuild log data will stream in below:"
 nix "${nixopts[@]}" build "$installable"
-if [ $? -ne 0 ]; then
-	errcode=$?
+errcode=$?
+if [ $errcode -ne 0 ]; then
 	exit $errcode
 fi
 echo -e "\nBuild finished!"
