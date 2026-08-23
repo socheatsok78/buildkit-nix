@@ -32,8 +32,8 @@ func WithImpureEnvSecret(dest string, s *llb.SecretInfo) llb.RunOption {
 	return llb.AddSecret(
 		dest,
 		llb.SecretID(dest),
-		AddSecretInfo(s),
 		llb.SecretAsEnv(true),
+		AddSecretInfo(s),
 	)
 }
 
