@@ -21,7 +21,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 	).Root()
 
 	st = st.
-		Run(
+		Run(mergeSlices([]llb.RunOption{
 			llb.Security(nixbld.NixSecurityMode),
 
 			llb.AddEnv("BUILDKIT_NIX_SHELTER_DIR", mountShelterDir),
@@ -39,7 +39,7 @@ func (nixbld *Builder) Build(target string, source llb.State) llb.State {
 
 			withInternalName(fmt.Sprintf("nix build .#%s", target), nixbld.NixBuildTargetPlatform, nixbld.NixMultiPlatformRequested),
 			nixllb.ShouldIgnoreCache(nixbld.NixIgnoreCache),
-		).
+		}, nixbld.NixBuildSecrets)...).
 		GetMount(mountShelterDir)
 
 	return st
@@ -50,4 +50,16 @@ func withInternalName(name string, p ocispec.Platform, multiPlatformRequested bo
 		return nixui.WithInternalNameTag(fmt.Sprintf("builder %s/%s", p.OS, p.Architecture))(name)
 	}
 	return nixui.WithInternalNameTag("builder")(name)
+}
+
+func mergeSlices[T any](slices ...[]T) []T {
+	totalLength := 0
+	for _, s := range slices {
+		totalLength += len(s)
+	}
+	result := make([]T, 0, totalLength)
+	for _, s := range slices {
+		result = append(result, s...)
+	}
+	return result
 }
