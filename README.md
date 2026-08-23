@@ -74,18 +74,18 @@ docker buildx build -t flake -f flake.nix --target <installable> .
 >
 > See https://nix.dev/tutorials/nixos/building-and-running-docker-images.html and https://nixos.org/manual/nixpkgs/stable/#sec-pkgs-dockerTools.
 
-## Customization
+## Configure `nix.conf`
 
-The frontend can be customized using the following build arguments, which can be passed to the `docker buildx build` command using the `--build-arg` option:
+There are two different way to customize `nix.conf`:
+- The `nix.conf.${key}` build args
+- The `nix.secret.${key}` build secrets
 
-- `nix.conf.substituters`: (default: `""`) A list of URLs of Nix stores to be used as substituters, separated by whitespace. A substituter is an additional store from which Nix can obtain store objects instead of building them.  
-  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-substituters
+Both mechanisms allow individual nix.conf settings to be passed to the build without requiring a complete `nix.conf` file. Nix configuration options can be provided as Docker build arguments using the `nix.conf.` prefix.
 
-- `nix.conf.trusted-public-keys`: (default: `""`) A whitespace-separated list of public keys.  
-  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-public-keys
-  
-- `nix.conf.trusted-substituters`: (default: `""`) A list of Nix store URLs, separated by whitespace.
-  See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-trusted-substituters
+> [!CAUTION]
+> Docker build arguments are not intended for sensitive information. Values supplied through build arguments may be exposed through build metadata or build history.
+>
+> Sensitive Nix configuration values can instead be provided through Docker BuildKit's build secrets feature using the `nix.secret` prefix. This mechanism should be preferred when the Nix configuration contains credentials, access tokens, private registry credentials, or other sensitive information.
 
 **Advanced Options**:
 
@@ -93,23 +93,6 @@ The frontend can be customized using the following build arguments, which can be
 
 - `security.insecure`: (default: `false`), The default security mode is sandbox. With `security.insecure=true`, the builder runs the command without sandbox in insecure mode, which allows to run flows requiring elevated privileges.  
   See https://docs.docker.com/reference/dockerfile/#run---security
-
-
-### Build Secrets
-
-You can provide secrets to the frontend using the `--secret` option of `docker buildx build`. The following secrets are supported:
-- `nix.secret.access-tokens`: A file containing access tokens used to access protected GitHub, GitLab, or other locations requiring token-based authentication.  
-    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-access-tokens.
-
-- `nix.secret.impure-env`: A file containing environment variables that are considered impure and should be passed to the Nix build process.  
-    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-impure-env.
-
-- `nix.secret.netrc-file`: If set to an absolute path to a netrc file, Nix will use the HTTP authentication credentials in this file when trying to download from a remote host through HTTP or HTTPS.  
-    See https://nix.dev/manual/nix/2.24/command-ref/conf-file#conf-netrc-file.
-
-> [!NOTE]
-> The build secrets are on-demand and optional, so you can choose to provide them or not. During the `nix build` phase, the frontend will check if the secrets are provided and pass them to the `nix build` command as `--option` arguments. If the secrets are not provided, the frontend will skip them and continue with the build.
-
 
 ## Example
 
@@ -123,10 +106,10 @@ See [socheatsok78/buildkit-nix-demo](https://github.com/socheatsok78/buildkit-ni
 
 ## Caveats
 
-> [!CAUTION]
+> [!IMPORTANT]
 > Not all packages can be built with this frontend, some may fail due to various reasons.
 
-> [!CAUTION]
+> [!IMPORTANT]
 > **Privileged Build**
 > 
 > The privileged build is required for some packages that require access to the host system, such as `dockerTools.buildImage` or `dockerTools.buildLayeredImage`. If you are building a package that requires privileged access.
