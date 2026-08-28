@@ -3,7 +3,7 @@
   maintainers ? import <nixpkgs> { }.lib.maintainers,
 }:
 rec {
-  default = nixfile-frontend;
+  default = nixfile-frontend-image;
 
   nixfile-frontend = pkgs.callPackage ./nixfile-frontend.nix {
     inherit maintainers;

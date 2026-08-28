@@ -20,6 +20,20 @@ target "nixfile-frontend" {
     ]
 }
 
+target "bootstrap" {
+    inherits = [ 
+        "docker-metadata-action",
+        "github-metadata-action",
+    ]
+    context = "."
+    dockerfile = "bootstrap.Dockerfile"
+	tags = [
+        "${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:bootstrap",
+        "ghcr.io/${GITHUB_REPOSITORY_OWNER}/nixfile-frontend:bootstrap",
+    ]
+}
+
+
 target "dockerfile" {
     inherits = [ 
         "docker-metadata-action",
